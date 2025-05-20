@@ -5,7 +5,7 @@ from mangum import Mangum
 app = FastAPI()
 
 
-@app.get("/health-check")
+@app.get("/health-check-fix")
 async def health_check():
     """간단한 헬스체크 엔드포인트"""
     return {"status": "ok"}

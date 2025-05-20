@@ -1,12 +1,11 @@
 name: Deploy-FastAPI-Lambda
 
-# ── 1) backend 폴더가 바뀔 때만 파이프라인 실행 ──
 on:
   push:
-    branches: [main]
-    paths: # backend/** 안의 변경이 있을 때만
-      - "backend/**"
-      - ".github/workflows/deploy-backend.yml" # 워크플로 수정도 트리거
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
 
 env:
   BACKEND_DIR: backend
@@ -17,39 +16,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) 코드 체크아웃
-      - uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-      # 2) Python 세팅
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
 
-      # 3) 패키징 ─ backend만 포함한 ZIP 만들기
-      - name: Build Lambda zip
-        run: |
-          mkdir -p build
-          # 의존성 설치 (backend/requirements.txt 가 있으면 경로 조정)
-          if [ -f $BACKEND_DIR/requirements.txt ]; then
-            pip install -r $BACKEND_DIR/requirements.txt -t build
-          else
-            pip install -r requirements.txt -t build
-          fi
-          # backend 코드 전체 복사
-          cp -R $BACKEND_DIR build/
-          # ZIP 루트는 build/ 내부 파일
-          cd build && zip -r ../function.zip . && cd ..
+    - name: Build Lambda zip
+      run: |
+        mkdir -p build
+        if [ -f "$BACKEND_DIR/requirements.txt" ]; then
+          pip install -r "$BACKEND_DIR/requirements.txt" -t build
+        else
+          pip install -r requirements.txt -t build
+        fi
+        rsync -av --exclude='__pycache__' "$BACKEND_DIR/" build/
+        cd build && zip -r ../function.zip . && cd ..
 
-      # 4) AWS 자격증명 주입
-      - uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+    - uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region:            ${{ secrets.AWS_REGION }}
 
-      # 5) Lambda 코드 업데이트
-      - name: Update Lambda code
-        run: |
-          aws lambda update-function-code \
-            --function-name  $LAMBDA_ARN \
-            --zip-file       fileb://function.zip
+    - name: Update Lambda code
+      run: |
+        aws lambda update-function-code \
+          --function-name $LAMBDA_ARN \
+          --zip-file fileb://function.zip
