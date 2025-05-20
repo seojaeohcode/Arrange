@@ -1,0 +1,8 @@
+{
+    "items": [
+      {"title": "AI", "summary": "Artificial intelligence and machine learning"},
+      {"title": "BTS", "summary": "Popular K-pop group from Korea"},
+      {"title": "Deep Learning", "summary": "Neural networks and deep models"},
+      {"title": "Blackpink", "summary": "Another K-pop girl group"}
+    ]
+  }
