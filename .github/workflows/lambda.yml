@@ -20,7 +20,7 @@ jobs:
       - name: Build Lambda zip
         run: |
           pip install -r requirements.txt -t package
-          cp -R *.py package/
+          cp lambda_function.py package/
           cd package && zip -r ../function.zip . && cd ..
 
       # 4) AWS 자격증명 주입
