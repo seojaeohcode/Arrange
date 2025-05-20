@@ -5,14 +5,12 @@ import * as bookmarkApi from '../api/bookmarkApi';
 
 interface BookmarkState {
   bookmarks: Bookmark[];
-  categories: Category[];
   isLoading: boolean;
   error: string | null;
   userSettings: UserSettings;
   
   // 북마크 액션
   fetchBookmarks: () => Promise<void>;
-  fetchCategories: () => Promise<void>;
   addBookmark: (url: string, pageText: string) => Promise<void>;
   removeBookmark: (id: string) => Promise<void>;
   updateBookmark: (id: string, data: Partial<Bookmark>) => Promise<void>;
@@ -30,7 +28,6 @@ const useBookmarkStore = create<BookmarkState>()(
   persist(
     (set, get) => ({
       bookmarks: [],
-      categories: [],
       isLoading: false,
       error: null,
       userSettings: {
@@ -43,7 +40,9 @@ const useBookmarkStore = create<BookmarkState>()(
       fetchBookmarks: async () => {
         set({ isLoading: true, error: null });
         try {
-          const bookmarks = await bookmarkApi.getAllBookmarks();
+          let bookmarks = await bookmarkApi.getAllBookmarks();
+          // order가 없는 북마크에 대해 자동 부여
+          bookmarks = bookmarks.map((bm, idx) => ({ ...bm, order: typeof bm.order === 'number' ? bm.order : idx }));
           set({ bookmarks, isLoading: false });
         } catch (error) {
           set({ 
@@ -54,38 +53,25 @@ const useBookmarkStore = create<BookmarkState>()(
         }
       },
       
-      // 카테고리 가져오기
-      fetchCategories: async () => {
-        set({ isLoading: true, error: null });
-        try {
-          const categories = await bookmarkApi.getAllCategories();
-          set({ categories, isLoading: false });
-        } catch (error) {
-          set({ 
-            error: '카테고리를 불러오는데 실패했습니다.', 
-            isLoading: false 
-          });
-          console.error('카테고리 불러오기 오류:', error);
-        }
-      },
-      
       // 북마크 추가
       addBookmark: async (url, pageText) => {
         set({ isLoading: true, error: null });
         try {
           const response = await bookmarkApi.saveBookmark(url, pageText);
           const now = new Date().toISOString();
-
+          const state = get();
+          const sameCategory = state.bookmarks.filter(bm => bm.categoryId === 'default');
+          const maxOrder = sameCategory.length > 0 ? Math.max(...sameCategory.map(bm => bm.order)) : -1;
           const newBookmark: Bookmark = {
             id: response.bookmark.id,
             title: response.bookmark.title,
             url,
-            categoryId: 'default', // 기본 카테고리 ID
+            categoryId: 'default',
             createdAt: now,
             updatedAt: now,
-            visitCount: 0
+            visitCount: 0,
+            order: maxOrder + 1
           };
-
           set(state => ({
             bookmarks: [...state.bookmarks, newBookmark],
             isLoading: false,
@@ -183,7 +169,7 @@ const useBookmarkStore = create<BookmarkState>()(
           });
 
           const transformBookmarks = (nodes: chrome.bookmarks.BookmarkTreeNode[], parentId = '0'): Bookmark[] => {
-            return nodes.reduce((acc: Bookmark[], node) => {
+            return nodes.reduce((acc: Bookmark[], node, idx) => {
               if (node.url) {
                 // URL이 있으면 북마크
                 const favicon = `https://www.google.com/s2/favicons?sz=64&domain_url=${node.url}`;
@@ -196,32 +182,9 @@ const useBookmarkStore = create<BookmarkState>()(
                   updatedAt: node.dateGroupModified ? new Date(node.dateGroupModified).toISOString() : new Date().toISOString(),
                   visitCount: 0,
                   favicon,
+                  order: idx
                 });
               } else if (node.children) {
-                // 폴더인 경우 카테고리로 추가
-                if (node.id !== '0' && node.id !== '1') { // root와 북마크 바는 제외
-                  // 현재 카테고리 목록 가져오기
-                  const currentCategories = get().categories;
-                  
-                  // 카테고리가 아직 없으면 추가
-                  if (!currentCategories.some(cat => cat.id === node.id)) {
-                    set(state => ({
-                      categories: [
-                        ...state.categories,
-                        {
-                          id: node.id,
-                          name: node.title || '카테고리',
-                          description: '',
-                          color: getRandomColor(),
-                          createdAt: node.dateAdded ? new Date(node.dateAdded).toISOString() : new Date().toISOString(),
-                          updatedAt: node.dateGroupModified ? new Date(node.dateGroupModified).toISOString() : new Date().toISOString(),
-                          bookmarkCount: node.children?.filter(child => child.url).length || 0
-                        }
-                      ]
-                    }));
-                  }
-                }
-                
                 // 자식 노드 재귀 처리 (현재 노드 ID를 부모로 전달)
                 acc.push(...transformBookmarks(node.children, node.id));
               }
@@ -229,27 +192,15 @@ const useBookmarkStore = create<BookmarkState>()(
             }, []);
           };
 
-          // 랜덤 색상 생성 함수
-          const getRandomColor = () => {
-            const colors = [
-              '#FF5733', '#33FF57', '#3357FF', '#F3FF33', '#FF33F3', 
-              '#33FFF3', '#FF8033', '#8033FF', '#33FF80', '#FF3380'
-            ];
-            return colors[Math.floor(Math.random() * colors.length)];
-          };
-
           // 북마크를 변환하여 저장
           const transformedBookmarks = transformBookmarks(bookmarks);
-          
           // 상태 업데이트
           set(state => ({
             bookmarks: transformedBookmarks,
             isLoading: false
           }));
-          
           // 로컬 스토리지에 저장 (API 호출 대신)
           await bookmarkApi.importBookmarks(transformedBookmarks);
-          
           return transformedBookmarks;
         } catch (error) {
           console.error('크롬 북마크를 가져오는 중 오류 발생:', error);
@@ -259,13 +210,12 @@ const useBookmarkStore = create<BookmarkState>()(
           });
           throw error;
         }
-      },
+      }
     }),
     {
       name: 'bookmark-storage',
       partialize: (state) => ({
         bookmarks: state.bookmarks,
-        categories: state.categories,
         userSettings: state.userSettings,
       }),
     }

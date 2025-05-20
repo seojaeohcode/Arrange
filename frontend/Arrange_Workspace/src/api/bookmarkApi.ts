@@ -6,27 +6,12 @@ const STORAGE_KEYS = {
   CATEGORIES: 'categories',
 };
 
-// Mock 데이터 초기화
-const initializeMockData = () => {
-  if (!localStorage.getItem(STORAGE_KEYS.BOOKMARKS)) {
-    localStorage.setItem(STORAGE_KEYS.BOOKMARKS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.CATEGORIES)) {
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify([
-      { id: '1', name: '개발', color: '#FF5733' },
-      { id: '2', name: '디자인', color: '#33FF57' },
-      { id: '3', name: '생산성', color: '#3357FF' },
-    ]));
-  }
-};
-
-// Mock 데이터 초기화 실행
-initializeMockData();
-
 // 페이지 텍스트 추출 및 북마크 저장 API
 export const saveBookmark = async (url: string, pageText: string): Promise<SaveBookmarkResponse> => {
   try {
     const bookmarks = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKMARKS) || '[]');
+    const sameCategory = bookmarks.filter((bm: Bookmark) => bm.categoryId === '1');
+    const maxOrder = sameCategory.length > 0 ? Math.max(...sameCategory.map((bm: Bookmark) => bm.order ?? 0)) : -1;
     const newBookmark: Bookmark = {
       id: Date.now().toString(),
       url,
@@ -38,6 +23,7 @@ export const saveBookmark = async (url: string, pageText: string): Promise<SaveB
       visitCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      order: maxOrder + 1
     };
     
     bookmarks.push(newBookmark);
@@ -98,17 +84,6 @@ export const updateBookmark = async (bookmarkId: string, data: Partial<Bookmark>
     return updatedBookmark;
   } catch (error) {
     console.error('북마크 수정 중 오류 발생:', error);
-    throw error;
-  }
-};
-
-// 모든 카테고리 가져오기 API
-export const getAllCategories = async (): Promise<Category[]> => {
-  try {
-    const categories = JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES) || '[]');
-    return categories;
-  } catch (error) {
-    console.error('카테고리 불러오기 중 오류 발생:', error);
     throw error;
   }
 };

@@ -244,13 +244,15 @@ const ImportDescription = styled.p`
 
 const ImportButton = styled.button`
   display: block;
+  width: 100%;
+  max-width: 320px;
   margin: 0 auto 0 auto;
   background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 12px 0;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.3s;
   

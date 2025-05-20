@@ -1,39 +1,50 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import useBookmarkStore from '../store/useBookmarkStore';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Bookmark } from 'types';
+import { flattenBookmarks } from '../utils/transformBookmarks';
+import { buildBookmarkTree } from '../utils/buildBookmarkTree';
 
 // 지연 로딩으로 각 페이지 컴포넌트 가져오기
 const DashboardComponent = lazy(() => import('../components/Dashboard'));
 const SettingsComponent = lazy(() => import('../components/Settings'));
 
+interface CategoryTree {
+  id: string;
+  name: string;
+  children: Bookmark[];
+}
+
 const Home: React.FC = () => {
-  const { userSettings, fetchBookmarks, fetchCategories, importChromeBookmarks, removeBookmark, updateBookmark } = useBookmarkStore();
+  const { userSettings, fetchBookmarks, importChromeBookmarks, removeBookmark, updateBookmark } = useBookmarkStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeSection, setActiveSection] = useState("HOME");
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["1"]));
   const [isLoading, setIsLoading] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+  const [bookmarkTree, setBookmarkTree] = useState<CategoryTree[]>([]);
+  const { bookmarks } = useBookmarkStore();
 
   useEffect(() => {
     fetchBookmarks();
-    fetchCategories();
   }, []);
 
-  // 북마크 클릭 시 새 탭으로 열기
-  const openBookmark = (url: string) => {
-    window.open(url, '_blank');
-  };
-
-  // 카테고리 펼치기/접기 토글
-  const toggleCategory = (categoryId: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId);
-    } else {
-      newExpanded.add(categoryId);
+  useEffect(() => {
+    // 탭(섹션) 변경 시 스크롤 맨 위로 이동
+    if (contentAreaRef.current) {
+      contentAreaRef.current.scrollTop = 0;
     }
-    setExpandedCategories(newExpanded);
+  }, [activeSection]);
+
+  // 북마크 클릭 시 새 탭으로 열기
+  const handleBookmarkClick = async (bookmark: Bookmark) => {
+    window.open(bookmark.url, '_blank');
+    await updateBookmark(bookmark.id, { visitCount: (bookmark.visitCount || 0) + 1 });
+    await fetchBookmarks();
   };
 
   // 크롬 북마크 동기화
@@ -84,6 +95,29 @@ const Home: React.FC = () => {
     }
   };
 
+  const handleArrangeClick = async () => {
+    // 1. 북마크 id, title, summary만 추출
+    const minimalList = bookmarks.map(bm => ({
+      id: bm.id,
+      title: bm.title,
+      summary: bm.description || ''
+    }));
+    // 2. 서버에 POST
+    const res = await fetch('/api/cluster', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(minimalList)
+    });
+    const clusters = await res.json(); // [{ categoryId, categoryName, bookmarkIds }]
+    // 3. 트리 구조로 변환
+    const tree = buildBookmarkTree(bookmarks, clusters);
+    setBookmarkTree(tree);
+    // 4. 평탄화하여 localStorage/zustand에 반영 (선택)
+    const flat = tree.flatMap(cat => cat.children.map(bm => ({ ...bm, categoryId: cat.id, category: cat.name })));
+    localStorage.setItem('bookmarks', JSON.stringify(flat));
+    await fetchBookmarks();
+  };
+
   // 컨텐츠 렌더링
   const renderContent = () => {
     switch (activeSection) {
@@ -106,16 +140,10 @@ const Home: React.FC = () => {
 
   // 실제 북마크 데이터 렌더링
   const renderBookmarks = () => {
-    const { bookmarks, categories, isLoading: storeLoading } = useBookmarkStore.getState();
+    const { bookmarks, isLoading: storeLoading } = useBookmarkStore.getState();
     
-    // 전역 또는 컴포넌트 로딩 상태 확인
     if (isLoading || storeLoading) {
-      return (
-        <LoadingContainer>
-          <LoadingSpinner />
-          <LoadingMessage>북마크 데이터를 불러오는 중...</LoadingMessage>
-        </LoadingContainer>
-      );
+      return <LoadingMessage>북마크 데이터를 불러오는 중...</LoadingMessage>;
     }
 
     if (bookmarks.length === 0) {
@@ -123,89 +151,67 @@ const Home: React.FC = () => {
         <EmptyState>
           <EmptyIcon>📚</EmptyIcon>
           <EmptyText>
-            저장된 북마크가 없습니다. 
+            저장된 북마크가 없습니다.
             <SyncButtonLink onClick={syncChromeBookmarks}>크롬 북마크를 가져오기</SyncButtonLink>를 통해 북마크를 불러올 수 있습니다.
           </EmptyText>
         </EmptyState>
       );
     }
 
-    // 카테고리별로 북마크 그룹화
-    const bookmarksByCategory = categories.map(category => {
-      return {
-        category,
-        bookmarks: bookmarks.filter(bookmark => bookmark.categoryId === category.id)
-      };
-    });
+    const sortedBookmarks = [...bookmarks].sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0));
+    const maxVisit = sortedBookmarks[0]?.visitCount || 1;
 
-    // 카테고리가 없는 북마크는 '기타' 그룹으로
-    const uncategorizedBookmarks = bookmarks.filter(
-      bookmark => !categories.some(cat => cat.id === bookmark.categoryId)
-    );
-
-    if (uncategorizedBookmarks.length > 0) {
-      bookmarksByCategory.push({
-        category: {
-          id: 'uncategorized',
-          name: '기타',
-          color: '#888',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        bookmarks: uncategorizedBookmarks
-      });
-    }
-
+    // 모든 북마크를 미분류로 렌더링
     return (
-      <BookmarksList>
-        {bookmarksByCategory.map(group => (
-          group.bookmarks.length > 0 && (
-            <CategoryGroup key={group.category.id}>
-              <CategoryHeader onClick={() => toggleCategory(group.category.id)}>
-                <FolderIcon>{expandedCategories.has(group.category.id) ? "📂" : "📁"}</FolderIcon>
-                <CategoryName>{group.category.name}</CategoryName>
-                <BookmarkCount>({group.bookmarks.length})</BookmarkCount>
-              </CategoryHeader>
-              
-              {expandedCategories.has(group.category.id) && (
-                <BookmarksContainer>
-                  {group.bookmarks.map(bookmark => (
-                    <BookmarkItem key={bookmark.id} onClick={() => openBookmark(bookmark.url)}>
-                      <ServiceIcon>
-                        {bookmark.favicon ? (
-                          <img src={bookmark.favicon} alt="" width="16" height="16" />
-                        ) : (
-                          <IconText>🔖</IconText>
-                        )}
-                      </ServiceIcon>
-                      <BookmarkContent>
-                        {editingBookmark === bookmark.id ? (
-                          <EditForm onSubmit={(e) => handleSaveTitle(bookmark.id, e)} onClick={(e) => e.stopPropagation()}>
-                            <EditInput 
-                              value={editTitle} 
-                              onChange={(e) => setEditTitle(e.target.value)}
-                              autoFocus
-                            />
-                            <SaveButton type="submit">✓</SaveButton>
-                            <CancelButton type="button" onClick={() => setEditingBookmark(null)}>✕</CancelButton>
-                          </EditForm>
-                        ) : (
-                          <BookmarkTitle>{bookmark.title}</BookmarkTitle>
-                        )}
-                        <BookmarkUrl>{bookmark.url}</BookmarkUrl>
-                      </BookmarkContent>
-                      <BookmarkActions onClick={(e) => e.stopPropagation()}>
-                        <ActionButton onClick={(e) => handleEditStart(bookmark, e)} title="북마크 이름 변경">✏️</ActionButton>
-                        <ActionButton onClick={(e) => handleDeleteBookmark(bookmark.id, e)} title="북마크 삭제">🗑️</ActionButton>
-                      </BookmarkActions>
-                    </BookmarkItem>
-                  ))}
-                </BookmarksContainer>
-              )}
-            </CategoryGroup>
-          )
-        ))}
-      </BookmarksList>
+      <BookmarksContainer>
+        {sortedBookmarks.map(bookmark => {
+          const fillRatio = maxVisit > 0 ? (bookmark.visitCount || 0) / maxVisit : 0;
+          return (
+            <BookmarkItem
+              key={bookmark.id}
+              fillRatio={fillRatio}
+              onClick={() => handleBookmarkClick(bookmark)}
+              onMouseLeave={() => setOpenActionId(null)}
+            >
+              <ServiceIcon>
+                {bookmark.favicon ? (
+                  <img src={bookmark.favicon} alt="" width="16" height="16" />
+                ) : (
+                  <IconText>🔖</IconText>
+                )}
+              </ServiceIcon>
+              <BookmarkContent>
+                {editingBookmark === bookmark.id ? (
+                  <EditForm onSubmit={(e) => handleSaveTitle(bookmark.id, e)} onClick={(e) => e.stopPropagation()}>
+                    <EditInput
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      autoFocus
+                    />
+                    <SaveButton type="submit">✓</SaveButton>
+                    <CancelButton type="button" onClick={() => setEditingBookmark(null)}>✕</CancelButton>
+                  </EditForm>
+                ) : (
+                  <BookmarkTitle>{bookmark.title}</BookmarkTitle>
+                )}
+                <BookmarkUrl>{bookmark.url}</BookmarkUrl>
+              </BookmarkContent>
+              <VisitCount>{bookmark.visitCount || 0}</VisitCount>
+              <ActionMenuWrapper>
+                <ActionMenuButton onClick={e => { e.stopPropagation(); setOpenActionId(bookmark.id === openActionId ? null : bookmark.id); }}>
+                  ⋯
+                </ActionMenuButton>
+                {openActionId === bookmark.id && (
+                  <ActionMenu>
+                    <ActionButton onClick={e => { e.stopPropagation(); handleEditStart(bookmark, e); setOpenActionId(null); }}>이름 변경</ActionButton>
+                    <ActionButton onClick={e => { e.stopPropagation(); handleDeleteBookmark(bookmark.id, e); setOpenActionId(null); }}>삭제</ActionButton>
+                  </ActionMenu>
+                )}
+              </ActionMenuWrapper>
+            </BookmarkItem>
+          );
+        })}
+      </BookmarksContainer>
     );
   };
 
@@ -214,48 +220,67 @@ const Home: React.FC = () => {
       <Header>
         <LogoSection>
           <AILogo>A!</AILogo>
-          <AppTitle>Arrange</AppTitle>
+          <AppTitle>A!rrange</AppTitle>
         </LogoSection>
-        <SearchBar>
-          <SearchInput 
-            type="text" 
-            placeholder="북마크 검색" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <SearchIcon>🔍</SearchIcon>
-        </SearchBar>
-        <SyncButton 
-          onClick={syncChromeBookmarks} 
-          title="크롬 북마크 동기화"
-          disabled={isLoading}
-        >
-          {isLoading ? '⏳' : '🔄'}
-        </SyncButton>
+        <MainNavigation>
+          <NavigationTab 
+            active={activeSection === "HOME"} 
+            onClick={() => setActiveSection("HOME")}
+          >
+            🏠 홈
+          </NavigationTab>
+          <NavigationTab 
+            active={activeSection === "DASHBOARD"} 
+            onClick={() => setActiveSection("DASHBOARD")}
+          >
+            📊 대시보드
+          </NavigationTab>
+          <NavigationTab 
+            active={activeSection === "SETTINGS"} 
+            onClick={() => setActiveSection("SETTINGS")}
+          >
+            ⚙️ 설정
+          </NavigationTab>
+        </MainNavigation>
       </Header>
-
-      <MainNavigation>
-        <NavigationTab 
-          active={activeSection === "HOME"} 
-          onClick={() => setActiveSection("HOME")}
-        >
-          🏠 홈
-        </NavigationTab>
-        <NavigationTab 
-          active={activeSection === "DASHBOARD"} 
-          onClick={() => setActiveSection("DASHBOARD")}
-        >
-          📊 대시보드
-        </NavigationTab>
-        <NavigationTab 
-          active={activeSection === "SETTINGS"} 
-          onClick={() => setActiveSection("SETTINGS")}
-        >
-          ⚙️ 설정
-        </NavigationTab>
-      </MainNavigation>
-
-      <ContentArea>
+      <Separator />
+      <ContentArea ref={contentAreaRef}>
+        {activeSection === 'HOME' && (
+          <TopBar>
+            <ArrangeButton onClick={handleArrangeClick}>A! 정리</ArrangeButton>
+            <SearchBar>
+              <SearchInput 
+                type="text" 
+                placeholder="북마크 검색" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <SearchIcon>🔍</SearchIcon>
+            </SearchBar>
+            <SyncButton 
+              onClick={syncChromeBookmarks} 
+              title="크롬 북마크 동기화"
+              disabled={isLoading}
+            >
+              {isLoading ? '⏳' : '🔄'}
+            </SyncButton>
+          </TopBar>
+        )}
+        {/* 트리 구조 렌더링 예시 */}
+        {bookmarkTree.length > 0 && (
+          <div style={{ margin: '16px 0' }}>
+            {bookmarkTree.map((category: CategoryTree) => (
+              <div key={category.id} style={{ marginBottom: 12 }}>
+                <strong>{category.name}</strong>
+                <ul>
+                  {category.children.map((bm: Bookmark) => (
+                    <li key={bm.id}>{bm.title}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
         {renderContent()}
       </ContentArea>
     </HomeContainer>
@@ -265,7 +290,7 @@ const Home: React.FC = () => {
 const HomeContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
   padding: 12px;
   background-color: #fff;
   max-width: 100%;
@@ -281,7 +306,9 @@ const HomeContainer = styled.div`
 const Header = styled.header`
   display: flex;
   align-items: center;
-  margin-bottom: 16px;
+  justify-content: space-between;
+  margin-bottom: 0;
+  padding-bottom: 0;
 `;
 
 const LogoSection = styled.div`
@@ -296,7 +323,7 @@ const AILogo = styled.div`
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: 30%;
   background-color: #4CAF50;
   color: white;
   font-weight: bold;
@@ -362,9 +389,9 @@ const SyncButton = styled.button`
 const MainNavigation = styled.div`
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 8px;
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
 `;
 
 interface TabProps {
@@ -399,6 +426,7 @@ const NavigationTab = styled.button<TabProps>`
 
 const ContentArea = styled.div`
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 `;
 
@@ -407,66 +435,42 @@ const BookmarksList = styled.div`
   overflow-y: auto;
 `;
 
-const CategoryGroup = styled.div`
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  overflow: hidden;
-`;
-
-const CategoryHeader = styled.div`
-  display: flex;
-  align-items: center;
-  background-color: #f5f5f5;
-  padding: 8px 10px;
-  cursor: pointer;
-  color: ${({ theme }) => theme.mode === 'dark' ? '#222' : '#1a1a1a'};
-  
-  &:hover {
-    background-color: #f0f0f0;
-  }
-`;
-
-const FolderIcon = styled.div`
-  color: #4CAF50;
-  margin-right: 8px;
-  font-size: 16px;
-`;
-
-const CategoryName = styled.div`
-  font-weight: bold;
-  flex: 1;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: ${({ theme }) => theme.mode === 'dark' ? '#222' : '#1a1a1a'};
-`;
-
-const BookmarkCount = styled.div`
-  color: #777;
-  font-size: 12px;
-  margin-left: 4px;
-`;
-
 const BookmarksContainer = styled.div`
-  max-height: 300px;
   overflow-y: auto;
+  padding-bottom: 16px;
 `;
 
-const BookmarkItem = styled.div`
+const BookmarkItem = styled.div<{ fillRatio: number }>`
+  user-select: none;
   display: flex;
   align-items: center;
-  padding: 8px 10px;
-  border-top: 1px solid #eee;
+  padding: 8px 12px;
+  border-radius: 12px;
+  margin: 4px 0;
+  border: none;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
   cursor: pointer;
-  
+  background: ${({ theme, fillRatio }) =>
+    theme.mode === 'dark'
+      ? `linear-gradient(to right, #b6e7b6 ${fillRatio * 100}%, transparent ${fillRatio * 100}% 100%)`
+      : `linear-gradient(to right, #c8e6c9 ${fillRatio * 100}%, transparent ${fillRatio * 100}% 100%)`};
+  position: relative;
+  transition: background 0.2s, box-shadow 0.2s;
+  &:hover::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    border-radius: 12px;
+    background: rgba(76, 175, 80, 0.08);
+    pointer-events: none;
+  }
   &:hover {
-    background-color: #f9f9f9;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
 `;
 
 const ServiceIcon = styled.div`
+  user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -479,58 +483,102 @@ const ServiceIcon = styled.div`
 `;
 
 const IconText = styled.span`
+  user-select: none;
   color: #555;
   font-size: 12px;
   font-weight: bold;
 `;
 
 const BookmarkContent = styled.div`
+  user-select: none;
   flex: 1;
   min-width: 0;
   overflow: hidden;
 `;
 
 const BookmarkTitle = styled.div`
+  user-select: none;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#222' : '#222'};
 `;
 
 const BookmarkUrl = styled.div`
+  user-select: none;
   font-size: 11px;
-  color: #888;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#b0b3b8' : '#888'};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 2px;
 `;
 
-const BookmarkActions = styled.div`
+const VisitCount = styled.div`
+  font-size: 12px;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#222' : '#388E3C'};
+  margin-left: 8px;
+  min-width: 24px;
+  text-align: right;
+`;
+
+const ActionMenuWrapper = styled.div`
+  position: relative;
+  margin-left: 8px;
+`;
+
+const ActionMenuButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  &:hover {
+    background: #e0e0e0;
+  }
+`;
+
+const ActionMenu = styled.div`
+  position: absolute;
+  top: 28px;
+  right: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   display: flex;
-  margin-left: 6px;
+  flex-direction: column;
+  min-width: 90px;
+  z-index: 10;
 `;
 
 const ActionButton = styled.button`
   background: none;
   border: none;
-  font-size: 13px;
-  opacity: 0.6;
+  color: #333;
+  font-size: 14px;
+  padding: 10px 12px;
+  text-align: left;
   cursor: pointer;
-  padding: 4px;
-  
+  border-radius: 10px;
+  transition: background 0.2s;
   &:hover {
-    opacity: 1;
+    background: #f0f0f0;
   }
 `;
 
 const EditForm = styled.form`
+  user-select: none;
   display: flex;
   align-items: center;
   width: 100%;
 `;
 
 const EditInput = styled.input`
+  user-select: none;
   flex: 1;
   border: 1px solid #4CAF50;
   border-radius: 4px;
@@ -540,6 +588,7 @@ const EditInput = styled.input`
 `;
 
 const SaveButton = styled.button`
+  user-select: none;
   background: none;
   border: none;
   color: #4CAF50;
@@ -549,6 +598,7 @@ const SaveButton = styled.button`
 `;
 
 const CancelButton = styled.button`
+  user-select: none;
   background: none;
   border: none;
   color: #f44336;
@@ -608,6 +658,7 @@ const EmptyText = styled.p`
 `;
 
 const SyncButtonLink = styled.button`
+  user-select: none;
   background: none;
   border: none;
   color: #4CAF50;
@@ -627,6 +678,36 @@ const LoadingPlaceholder = styled.div`
   text-align: center;
   color: #666;
   font-size: 14px;
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+`;
+
+const Separator = styled.div`
+  width: 100%;
+  height: 1px;
+  background: #e0e0e0;
+  margin: 8px 0 12px 0;
+`;
+
+const ArrangeButton = styled.button`
+  background: #4CAF50;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: bold;
+  margin-right: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover {
+    background: #388E3C;
+  }
 `;
 
 export default Home; 

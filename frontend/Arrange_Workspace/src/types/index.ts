@@ -10,6 +10,7 @@ export interface Bookmark {
   createdAt: string;
   updatedAt: string;
   visitCount: number;
+  order: number;
 }
 
 // 카테고리 타입 정의

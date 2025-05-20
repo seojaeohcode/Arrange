@@ -6,13 +6,11 @@ import useBookmarkStore from './store/useBookmarkStore';
 import { lightTheme, darkTheme } from './styles/theme';
 
 const App: React.FC = () => {
-  const { fetchBookmarks, fetchCategories, userSettings } = useBookmarkStore();
+  const { fetchBookmarks, userSettings } = useBookmarkStore();
 
   useEffect(() => {
-    // 앱 시작 시 북마크 및 카테고리 데이터 로드
     fetchBookmarks();
-    fetchCategories();
-  }, [fetchBookmarks, fetchCategories]);
+  }, [fetchBookmarks]);
 
   // 다크 모드 클래스 적용
   useEffect(() => {
