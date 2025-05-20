@@ -5,8 +5,9 @@
 # --- local-dev 전용 ---
 #uvicorn[standard]==0.29.0   # 로컬에서 `uvicorn main:app --reload` 로 빠르게 확인
 
-fastapi==0.110.0
-mangum==0.17.1
+# requirements.txt
+fastapi==0.110.0        # API 프레임워크
+mangum==0.17.0          # FastAPI → AWS Lambda 어댑터
 sentence-transformers==2.7.0
 scikit-learn==1.4.2
 numpy==1.24.4
