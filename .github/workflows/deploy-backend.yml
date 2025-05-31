@@ -6,47 +6,35 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      # 1) 전체 소스 SCP 전송
-      - name: Copy repo to EC2
-        uses: appleboy/scp-action@v0.1.1
-        with:
-          host:     ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key:      ${{ secrets.EC2_SSH_KEY }}
-          source:   "."                                     # 저장소 루트
-          target:   "/home/${{ secrets.EC2_USER }}/Arrange"
-
-      # 2) 원격 배포 스크립트
-      - name: Remote deploy commands
+      - name: SSH deploy
         uses: appleboy/ssh-action@v1
         with:
           host:     ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key:      ${{ secrets.EC2_SSH_KEY }}
+          key:      ${{ secrets.EC2_SSH_KEY }}   # ← EC2 접속용 PEM
           script: |
             set -e
-            PROJECT_ROOT=/home/${{ secrets.EC2_USER }}/Arrange
-            BACKEND_DIR=$PROJECT_ROOT/backend
+            sudo dnf -y install git
 
-            # 가상환경 준비(없으면 생성)
-            if [ ! -d "$BACKEND_DIR/venv" ]; then
-              python3 -m venv "$BACKEND_DIR/venv"
+            REPO_DIR=/home/${{ secrets.EC2_USER }}/Arrange
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
             fi
-            source "$BACKEND_DIR/venv/bin/activate"
+            cd "$REPO_DIR"
+            git pull
 
-            # 의존 업데이트
-            pip install --upgrade pip
-            pip install -r "$BACKEND_DIR/requirements.txt"
+            BACKEND=$REPO_DIR/backend
+            if [ ! -d "$BACKEND/venv" ]; then
+              python3 -m venv "$BACKEND/venv"
+            fi
+            source "$BACKEND/venv/bin/activate"
+            pip install -r "$BACKEND/requirements.txt"
 
-            # 기존 uvicorn 프로세스 종료(있으면)
             pkill -f "uvicorn app.main:app" || true
-
-            # 애플리케이션 실행
-            cd "$BACKEND_DIR"
+            cd "$BACKEND"
             nohup ./venv/bin/uvicorn app.main:app \
                   --host 0.0.0.0 --port 8000 --reload \
                   > ../uvicorn.out 2>&1 &
