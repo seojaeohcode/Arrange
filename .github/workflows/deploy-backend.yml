@@ -1,32 +1,32 @@
+# .github/workflows/deploy.yml
 name: deploy
 
 on:
   push:
-    branches:
-      - main            # main 브랜치에 푸시될 때마다 실행
+    branches: [ main ]
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest   # GitHub 호스트 러너
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4   # 로컬 빌드/테스트용(필요 없다면 제거해도 무방)
+      - uses: actions/checkout@v4
 
       - name: SSH to EC2 & update repo
         uses: appleboy/ssh-action@v1
         with:
-          host:     ${{ secrets.EC2_HOST }}     # ex) 3.90.201.239
-          username: ${{ secrets.EC2_USER }}     # ex) ec2-user
-          key:      ${{ secrets.EC2_SSH_KEY }}  # arrange_backend_key.pem 전문
+          host:     ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key:      ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 원격 서버에서 Arrange 저장소가 없으면 클론, 있으면 pull
+            sudo dnf -y install git
             REPO_DIR=/home/${{ secrets.EC2_USER }}/Arrange
             if [ ! -d "$REPO_DIR/.git" ]; then
               git clone https://github.com/seojaeohcode/Arrange.git "$REPO_DIR"
             fi
             cd "$REPO_DIR"
             git pull
-            # 필요한 추가 빌드/재시작 명령이 있으면 이어서 작성
+
 
 
 # name: Deploy to EC2
