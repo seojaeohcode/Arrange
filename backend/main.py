@@ -11,3 +11,4 @@ def generate_title(data: SummaryInput):
         return {"title": title}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+#test
