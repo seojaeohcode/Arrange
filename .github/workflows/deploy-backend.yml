@@ -1,48 +1,79 @@
-name: Deploy to EC2
+name: deploy
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main            # main 브랜치에 푸시될 때마다 실행
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest   # GitHub 호스트 러너
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - uses: actions/checkout@v4   # 로컬 빌드/테스트용(필요 없다면 제거해도 무방)
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.10"
+      - name: SSH to EC2 & update repo
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.EC2_HOST }}     # ex) 3.90.201.239
+          username: ${{ secrets.EC2_USER }}     # ex) ec2-user
+          key:      ${{ secrets.EC2_SSH_KEY }}  # arrange_backend_key.pem 전문
+          script: |
+            # 원격 서버에서 Arrange 저장소가 없으면 클론, 있으면 pull
+            REPO_DIR=/home/${{ secrets.EC2_USER }}/Arrange
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              git clone https://github.com/seojaeohcode/Arrange.git "$REPO_DIR"
+            fi
+            cd "$REPO_DIR"
+            git pull
+            # 필요한 추가 빌드/재시작 명령이 있으면 이어서 작성
 
-    - name: Install deps
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
 
-    # ① 코드 업로드 (scp/rsync 전용 액션 사용 -- SSH 한 번)
-    - name: Copy backend to EC2
-      uses: appleboy/scp-action@v0.1.1
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}           # ← ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: "backend/"
-        target: "/home/${{ secrets.EC2_USER }}/myproject/backend"
+# name: Deploy to EC2
 
-    # ② 원격 실행 (ssh-action -- 두 번째 SSH)
-    - name: Remote deploy commands
-      uses: appleboy/ssh-action@v0.1.2
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}           # ← ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          PROJECT_DIR=/home/${{ secrets.EC2_USER }}/myproject/backend
-          cd $PROJECT_DIR
-          # 이미 떠 있는 프로세스가 있다면 종료(선택)
-          pkill -f "uvicorn app.main:app" || true
-          # 새로 실행
-          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.out 2>&1 &
+# on:
+#   push:
+#     branches: [ main ]
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#     - name: Checkout
+#       uses: actions/checkout@v2
+
+#     - name: Set up Python
+#       uses: actions/setup-python@v2
+#       with:
+#         python-version: "3.10"
+
+#     - name: Install deps
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install -r backend/requirements.txt
+
+#     # ① 코드 업로드 (scp/rsync 전용 액션 사용 -- SSH 한 번)
+#     - name: Copy backend to EC2
+#       uses: appleboy/scp-action@v0.1.1
+#       with:
+#         host: ${{ secrets.EC2_HOST }}
+#         username: ${{ secrets.EC2_USER }}          
+#         key: ${{ secrets.EC2_SSH_KEY }}
+#         source: "backend/"
+#         target: "/home/${{ secrets.EC2_USER }}/myproject/backend"
+
+#     # ② 원격 실행 (ssh-action -- 두 번째 SSH)
+#     - name: Remote deploy commands
+#       uses: appleboy/ssh-action@v0.1.2
+#       with:
+#         host: ${{ secrets.EC2_HOST }}
+#         username: ${{ secrets.EC2_USER }}         
+#         key: ${{ secrets.EC2_SSH_KEY }}
+#         script: |
+#           PROJECT_DIR=/home/${{ secrets.EC2_USER }}/myproject/backend
+#           cd $PROJECT_DIR
+#           # 이미 떠 있는 프로세스가 있다면 종료(선택)
+#           pkill -f "uvicorn app.main:app" || true
+#           # 새로 실행
+#           nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.out 2>&1 &
