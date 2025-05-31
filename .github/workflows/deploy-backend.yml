@@ -2,36 +2,47 @@ name: Deploy to EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout
       uses: actions/checkout@v2
 
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.10'
+        python-version: "3.10"
 
-    - name: Install dependencies
+    - name: Install deps
       run: |
         python -m pip install --upgrade pip
         pip install -r backend/requirements.txt
 
-    - name: Deploy to EC2
+    # ① 코드 업로드 (scp/rsync 전용 액션 사용 -- SSH 한 번)
+    - name: Copy backend to EC2
+      uses: appleboy/scp-action@v0.1.1
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}           # ← ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "backend/"
+        target: "/home/${{ secrets.EC2_USER }}/myproject/backend"
+
+    # ② 원격 실행 (ssh-action -- 두 번째 SSH)
+    - name: Remote deploy commands
       uses: appleboy/ssh-action@v0.1.2
       with:
         host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
+        username: ${{ secrets.EC2_USER }}           # ← ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          mkdir -p /home/ec2-user/myproject/backend
-          rsync -avz backend/ ec2-user@${{ secrets.EC2_HOST }}:/home/ec2-user/myproject/backend
-          cd /home/ec2-user/myproject/backend
-          # 애플리케이션 실행
-          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+          PROJECT_DIR=/home/${{ secrets.EC2_USER }}/myproject/backend
+          cd $PROJECT_DIR
+          # 이미 떠 있는 프로세스가 있다면 종료(선택)
+          pkill -f "uvicorn app.main:app" || true
+          # 새로 실행
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.out 2>&1 &
