@@ -1,53 +1,34 @@
-name: Deploy
-on:
-  push:
-    branches: [main]
+- name: Deploy ─ clone or pull on EC2
+  env:
+    EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
+  run: |
+    ssh -o StrictHostKeyChecking=no \
+        -i ~/.ssh/id_rsa \
+        -p ${{ secrets.PORT }} \
+        ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+        "EC2_GIT_KEY='$EC2_GIT_KEY' bash -s" <<'REMOTE'
+      set -euo pipefail
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+      # 1) GitHub 배포키 설정
+      mkdir -p ~/.ssh
+      printf '%s\n' "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+      chmod 600 ~/.ssh/id_rsa
+      ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-    steps:
-      - name: Checkout (optional)
-        uses: actions/checkout@v3
+      # 2) 레포 클론 또는 업데이트
+      REPO_DIR="$HOME/app"
 
-      - name: Prepare runner-side SSH key for EC2
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+      if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+        rm -rf "$REPO_DIR"
+      fi
 
-      - name: Deploy ─ clone or pull on EC2
-        env:
-          EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
-        run: |
-          # one and only SSH hop – no nested ssh
-          ssh -o StrictHostKeyChecking=no \
-              -i ~/.ssh/id_rsa \
-              -p ${{ secrets.PORT }} \
-              ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -s' <<'REMOTE'
-            set -euo pipefail
+      if [ ! -d "$REPO_DIR/.git" ]; then
+        git clone --depth 1 git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+      else
+        git -C "$REPO_DIR" pull --ff-only
+      fi
+REMOTE
 
-            # ---------- 1. set up GitHub deploy key ----------
-            mkdir -p ~/.ssh
-            printf "%s\n" "$EC2_GIT_KEY" > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
-            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-
-            # ---------- 2. clone or update repo --------------
-            REPO_DIR="$HOME/app"
-
-            if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
-              rm -rf "$REPO_DIR"
-            fi
-
-            if [ ! -d "$REPO_DIR/.git" ]; then
-              git clone --depth 1 git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
-            else
-              git -C "$REPO_DIR" pull --ff-only
-            fi
-          REMOTE
 
 
 # name: Deploy
