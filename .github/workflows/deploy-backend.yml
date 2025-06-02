@@ -23,11 +23,9 @@ jobs:
         env:
           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i ~/.ssh/id_rsa \
-              -p ${{ secrets.PORT }} \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} \
               ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
-              "EC2_GIT_KEY='${EC2_GIT_KEY}' bash -s" <<'            REMOTE'
+              "EC2_GIT_KEY='${EC2_GIT_KEY}' bash -s" <<'EOF'
             set -euo pipefail
 
             # 1) GitHub 배포 키 설정
@@ -48,7 +46,8 @@ jobs:
             else
               git -C "$REPO_DIR" pull --ff-only
             fi
-            REMOTE
+EOF
+
 
 
 
