@@ -27,7 +27,7 @@
       else
         git -C "$REPO_DIR" pull --ff-only
       fi
-REMOTE
+    REMOTE
 
 
 
