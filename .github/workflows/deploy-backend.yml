@@ -1,49 +1,101 @@
 name: Deploy
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository (optional)
+      - name: Checkout (optional)
         uses: actions/checkout@v3
 
-      - name: Setup SSH key for EC2 connection
+      - name: Prepare runner-side SSH key for EC2
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to EC2 and clone/pull repo
+      - name: Deploy ─ clone or pull on EC2
         env:
           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
         run: |
-          ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
-            set -e
+          # one and only SSH hop – no nested ssh
+          ssh -o StrictHostKeyChecking=no \
+              -i ~/.ssh/id_rsa \
+              -p ${{ secrets.PORT }} \
+              ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -s' <<'REMOTE'
+            set -euo pipefail
 
+            # ---------- 1. set up GitHub deploy key ----------
             mkdir -p ~/.ssh
-            echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+            printf "%s\n" "$EC2_GIT_KEY" > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-            REPO_DIR=~/app
+            # ---------- 2. clone or update repo --------------
+            REPO_DIR="$HOME/app"
+
             if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
               rm -rf "$REPO_DIR"
             fi
 
             if [ ! -d "$REPO_DIR/.git" ]; then
-              git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+              git clone --depth 1 git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
             else
-              cd "$REPO_DIR"
-              git pull
+              git -C "$REPO_DIR" pull --ff-only
             fi
-          EOF
+          REMOTE
+
+
+# name: Deploy
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout repository (optional)
+#         uses: actions/checkout@v3
+
+#       - name: Setup SSH key for EC2 connection
+#         run: |
+#           mkdir -p ~/.ssh
+#           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+#           chmod 600 ~/.ssh/id_rsa
+#           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+#       - name: Deploy to EC2 and clone/pull repo
+#         env:
+#           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
+#         run: |
+#           ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+#             set -e
+
+#             mkdir -p ~/.ssh
+#             echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+#             chmod 600 ~/.ssh/id_rsa
+#             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+#             REPO_DIR=~/app
+#             if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+#               rm -rf "$REPO_DIR"
+#             fi
+
+#             if [ ! -d "$REPO_DIR/.git" ]; then
+#               git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+#             else
+#               cd "$REPO_DIR"
+#               git pull
+#             fi
+#           EOF
 
 
 # name: Deploy to EC2
