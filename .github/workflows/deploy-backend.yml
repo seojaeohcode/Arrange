@@ -20,24 +20,23 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy files to EC2 (optional)
-        run: |
-          scp -i ~/.ssh/id_rsa -P ${{ secrets.PORT }} -r ./backend ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app
-
-      - name: Update code on EC2 using Deploy Key
+      - name: Deploy to EC2 and clone/pull repo
         env:
           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
         run: |
           ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
+
             mkdir -p ~/.ssh
-            if [ ! -f ~/.ssh/id_rsa ]; then
-              echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
-              chmod 600 ~/.ssh/id_rsa
-              ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-            fi
+            echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
             REPO_DIR=~/app
+            if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+              rm -rf "$REPO_DIR"
+            fi
+
             if [ ! -d "$REPO_DIR/.git" ]; then
               git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
             else
