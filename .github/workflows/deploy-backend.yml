@@ -9,9 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1) 레포 선택적 체크아웃
       - name: Checkout
         uses: actions/checkout@v3
 
+      # 2) Runner → EC2 접속용 SSH 키
       - name: Prepare SSH key for EC2
         run: |
           mkdir -p ~/.ssh
@@ -19,22 +21,23 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
+      # 3) EC2 안에서 레포 클론/업데이트
       - name: Deploy – clone or pull on EC2
         env:
           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} \
               ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
-              "EC2_GIT_KEY='${EC2_GIT_KEY}' bash -s" <<'EOF'
+              "EC2_GIT_KEY='${EC2_GIT_KEY}' bash -s" <<'          EOF'
             set -euo pipefail
 
-            # 1) GitHub 배포 키 설정
+            # 1) GitHub 배포 키 등록
             mkdir -p ~/.ssh
             printf '%s\n' "$EC2_GIT_KEY" > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-            # 2) 레포 클론 또는 업데이트
+            # 2) 레포 클론/풀
             REPO_DIR="$HOME/app"
 
             if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
@@ -46,9 +49,7 @@ jobs:
             else
               git -C "$REPO_DIR" pull --ff-only
             fi
-EOF
-
-
+          EOF
 
 
 # name: Deploy
