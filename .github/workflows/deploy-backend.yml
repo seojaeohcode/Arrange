@@ -10,24 +10,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository (optional, if needed locally)
         uses: actions/checkout@v3
 
-      # - name: Setup SSH key for EC2 connection
-      #   run: |
-      #     mkdir -p ~/.ssh
-      #     echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-      #     chmod 600 ~/.ssh/id_rsa
-      #     ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+      - name: Setup SSH key for EC2 connection
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy app files to EC2
+      - name: Copy files to EC2 (optional, if you want to SCP files)
         run: |
           scp -i ~/.ssh/id_rsa -P ${{ secrets.PORT }} -r ./backend ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app
 
-      - name: Pull latest repo on EC2
+      - name: Setup Deploy Key on EC2 & Update Repository
+        env:
+          EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
         run: |
           ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            # EC2 내부에 이미 ~/.ssh/id_rsa (EC2_GIT_KEY)가 존재한다고 가정
+            set -e
+            mkdir -p ~/.ssh
+            echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
             REPO_DIR=~/app
             if [ ! -d "$REPO_DIR/.git" ]; then
               git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
@@ -36,6 +43,7 @@ jobs:
               git pull
             fi
           EOF
+
 
 
 
