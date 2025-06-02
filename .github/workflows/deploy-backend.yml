@@ -14,10 +14,18 @@ jobs:
         with:
           host:     ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key:      ${{ secrets.EC2_SSH_KEY }}   # ← EC2 접속용 PEM
+          key:      ${{ secrets.EC2_SSH_KEY }}   # EC2 접속용 PEM 키
           script: |
             set -e
             sudo dnf -y install git
+
+            # GitHub 접근용 SSH 키 설정 (Deploy Key의 개인키)
+            mkdir -p ~/.ssh
+            echo "${{ secrets.EC2_GIT_KEY }}" | tee ~/.ssh/id_rsa > /dev/null
+            chmod 600 ~/.ssh/id_rsa
+
+            # GitHub 호스트 인증 스킵 (보안 신경 쓸 경우 직접 검증하세요)
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
 
             REPO_DIR=/home/${{ secrets.EC2_USER }}/Arrange
             if [ ! -d "$REPO_DIR/.git" ]; then
@@ -38,7 +46,6 @@ jobs:
             nohup ./venv/bin/uvicorn app.main:app \
                   --host 0.0.0.0 --port 8000 --reload \
                   > ../uvicorn.out 2>&1 &
-
 
 # name: Deploy to EC2
 
