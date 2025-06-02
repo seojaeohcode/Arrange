@@ -28,23 +28,23 @@ jobs:
         env:
           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
         run: |
-          ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} bash -c "'
+          ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             mkdir -p ~/.ssh
             if [ ! -f ~/.ssh/id_rsa ]; then
-              echo \"$EC2_GIT_KEY\" > ~/.ssh/id_rsa
+              echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
               chmod 600 ~/.ssh/id_rsa
               ssh-keyscan -H github.com >> ~/.ssh/known_hosts
             fi
 
             REPO_DIR=~/app
-            if [ ! -d \"$REPO_DIR/.git\" ]; then
-              git clone git@github.com:seojaeohcode/Arrange.git \"$REPO_DIR\"
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
             else
-              cd \"$REPO_DIR\"
+              cd "$REPO_DIR"
               git pull
             fi
-          '"
+          EOF
 
 
 # name: Deploy to EC2
