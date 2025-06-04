@@ -49,6 +49,15 @@ jobs:
             else
               git -C "$REPO_DIR" pull --ff-only
             fi
+
+            # 3) Conda 환경 활성화 후 백엔드 실행
+            source ~/anaconda3/etc/profile.d/conda.sh
+            conda activate arrange
+
+            cd "$REPO_DIR/backend"
+
+            nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.log 2>&1 &
+
 #          EOF
 
 
