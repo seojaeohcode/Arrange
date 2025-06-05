@@ -1,7 +1,15 @@
 from openai import OpenAI
 from .config import OPENAI_API_KEY
+from sentence_transformers import SentenceTransformer
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+from typing import List
+from .schemas import InputItem
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 def generate_title_from_summary(summary: str) -> str:
     prompt = f"""
@@ -22,3 +30,20 @@ Summary:
     )
 
     return response.choices[0].message.content.strip()
+
+
+def cluster_items(items: List[InputItem]) -> dict:
+    texts = [f"{item.title} {item.summary}" for item in items]
+    embeddings = embedding_model.encode(texts)
+    embeddings_scaled = StandardScaler().fit_transform(embeddings)
+    dbscan = DBSCAN(eps=0.5, min_samples=2, metric='euclidean')
+    labels = dbscan.fit_predict(embeddings_scaled)
+
+    result = []
+    for item, label in zip(items, labels):
+        result.append({
+            "title": item.title,
+            "summary": item.summary,
+            "cluster": int(label)
+        })
+    return {"clusters": result}
