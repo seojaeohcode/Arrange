@@ -61,13 +61,13 @@ jobs:
             chmod 600 .env
 
             # ✅ 기존 uvicorn 프로세스 종료
-            if pgrep -f "uvicorn main:app" > /dev/null; then
+            if pgrep -f "uvicorn app.main:app" > /dev/null; then
               echo "Killing existing uvicorn process..."
-              pkill -f "uvicorn main:app"
+              pkill -f "uvicorn app.main:app"
               sleep 2
             fi
 
-            PYTHONPATH="$HOME/app" nohup uvicorn main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.log 2>&1 &
+            PYTHONPATH="$HOME/app" nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.log 2>&1 &
 
 
 #          EOF
