@@ -1,37 +1,37 @@
-# 🚀 FastAPI Clustering API
+# hap_main.py 설명 
+hap_main.py는 다음 2가지 기능을 제공하는 FastAPI 기반 REST API 서버야:
 
-이 프로젝트는 SentenceTransformer와 DBSCAN 알고리즘을 활용하여 텍스트 데이터(제목 + 요약)를 클러스터링하는 RESTful API입니다.
+✅ 1. /generate_title
+입력: 요약문 (summary)
+출력: 요약문에 기반한 다국어 제목 생성
 
----
+방법: OpenAI GPT API (gpt-3.5-turbo) 사용
 
-## 📦 설치 및 실행 방법
+✅ 2. /cluster/
+입력: 여러 개의 (제목 + 요약문) 데이터
+출력: 클러스터 번호가 붙은 문서 리스트
 
-1. 저장소 클론 및 디렉토리 이동
+방법:
+1. Sentence-BERT 임베딩
+2. StandardScaler로 정규화
+3. DBSCAN으로 클러스터링
 
-'''bash
-git clone https://github.com/hiwjddn/Arrange.git
-cd Arrange
+🔁 실행 흐름
+1. 사용자가 /generate_title 또는 /cluster/로 POST 요청을 보냄
+2. FastAPI가 요청을 받고, Pydantic 모델을 통해 JSON 데이터 구조를 검사
+3. 각각:
+/generate_title: GPT 모델에 프롬프트를 보내 제목 생성
+/cluster/: 제목+요약문을 임베딩한 후 클러스터링
+4. 결과를 JSON으로 응답
 
-2. 가상환경 생성 및 진입 
-python3 -m venv .venv
-source .venv/bin/activate
 
-3. 의존성 설치 
-pip install -r app/requirements.txt
 
-4. FastAPI 앱 실행
-uvicorn app.main:app --reload'''
+# hap_main.py 실행 
+## 의존성 설치 
+pip install -r requirements.txt
 
----
+## API 키 
+.env 파일을 프로젝트 루트에 생성하고 OPENAI_API_KEY 추가 
 
-## 브라우저에서 아래 주소로 접속하여 API를 테스트할 수 있습니다:
-Swagger UI: http://127.0.0.1:8000/docs
-Redoc 문서: http://127.0.0.1:8000/redoc
-
----
-
-## 아래 명령어를 실행하면 sample.json 파일을 기반으로 클러스터링 API를 호출할 수 있습니다:
-curl -X 'POST' \
-  'http://127.0.0.1:8000/cluster/' \
-  -H 'Content-Type: application/json' \
-  -d @sample.json
+## 명령어 예시 
+uvicorn hap_main:app --reload
