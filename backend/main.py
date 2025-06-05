@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
-from .schemas import SummaryInput
-from .services import generate_title_from_summary
+# from .schemas import SummaryInput
+# from .services import generate_title_from_summary
+from backend.services import generate_title_from_summary
+from backend.schemas import SummaryInput
 
 app = FastAPI(title="Multilingual GPT Title Generator")
 
