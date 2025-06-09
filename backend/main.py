@@ -18,3 +18,7 @@ def cluster(data: InputList):
         return cluster_items(data.items)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health-check")
+def health_check():
+    return {"status": "ok"}
