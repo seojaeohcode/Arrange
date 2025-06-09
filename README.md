@@ -1,37 +1,49 @@
-# hap_main.py 설명 
-hap_main.py는 다음 2가지 기능을 제공하는 FastAPI 기반 REST API 서버야:
+# API 문서
 
-✅ 1. /generate_title
-입력: 요약문 (summary)
-출력: 요약문에 기반한 다국어 제목 생성
+## 개요
+이 문서는 백엔드 서비스의 `main.py` 파일에 있는 API 엔드포인트에 대한 개요를 제공합니다. 이 서비스는 FastAPI로 구축되었으며, 제목 생성, 항목 클러스터링, 서비스 상태 확인 기능을 제공합니다.
 
-방법: OpenAI GPT API (gpt-3.5-turbo) 사용
+## 엔드포인트
 
-✅ 2. /cluster/
-입력: 여러 개의 (제목 + 요약문) 데이터
-출력: 클러스터 번호가 붙은 문서 리스트
+### 1. 제목 생성
+- **URL**: `/generate_title`
+- **메서드**: POST
+- **요청 본문**:
+  - `summary` (문자열): 제목을 생성할 요약문.
+- **응답**:
+  - `title` (문자열): 제공된 요약문을 기반으로 생성된 제목.
+- **설명**: 이 엔드포인트는 요약문을 입력으로 받아 동일한 언어로 간결하고 적절한 제목을 반환합니다.
+- **예시 결과**:
+  - 입력: `{"summary": "이 논문은 트랜스포머 기반 다국어 악성 패키지 탐지 방법을 제안한다."}`
+  - 출력: `{"title":"Language: Korean\n\nTitle: 다국어 악성 패키지 탐지를 위한 트랜스포머 기반 방법"}`
 
-방법:
-1. Sentence-BERT 임베딩
-2. StandardScaler로 정규화
-3. DBSCAN으로 클러스터링
+### 2. 항목 클러스터링
+- **URL**: `/cluster`
+- **메서드**: POST
+- **요청 본문**:
+  - `items` (객체 리스트): 각 객체는 `title`과 `summary` 필드를 포함해야 합니다.
+- **응답**:
+  - `clusters` (객체 리스트): 각 객체는 `title`, `summary`, `cluster` 필드를 포함하며, 클러스터 할당을 나타냅니다.
+- **설명**: 이 엔드포인트는 제공된 항목을 제목과 요약을 기반으로 클러스터링합니다.
+- **예시 결과**:
+  - 입력: `{"items":[{"title":"AI 발전","summary":"인공지능은 빠르게 발전하고 있습니다."},{"title":"환경 보호","summary":"지구 온난화를 막기 위한 정책들이 필요합니다."},{"title":"AI 기술","summary":"AI는 다양한 산업에 활용되고 있습니다."}]}`
+  - 출력: `{"clusters":[{"title":"AI 발전","summary":"인공지능은 빠르게 발전하고 있습니다.","cluster":-1},{"title":"환경 보호","summary":"지구 온난화를 막기 위한 정책들이 필요합니다.","cluster":-1},{"title":"AI 기술","summary":"AI는 다양한 산업에 활용되고 있습니다.","cluster":-1}]}`
 
-🔁 실행 흐름
-1. 사용자가 /generate_title 또는 /cluster/로 POST 요청을 보냄
-2. FastAPI가 요청을 받고, Pydantic 모델을 통해 JSON 데이터 구조를 검사
-3. 각각:
-/generate_title: GPT 모델에 프롬프트를 보내 제목 생성
-/cluster/: 제목+요약문을 임베딩한 후 클러스터링
-4. 결과를 JSON으로 응답
+### 3. 카테고리 제목 생성
+- **URL**: `/generate_category_titles`
+- **메서드**: POST
+- **요청 본문**:
+  - `items` (객체 리스트): 각 객체는 `title`, `summary`, `cluster` 필드를 포함해야 합니다.
+- **응답**:
+  - `categories` (사전): 키는 클러스터 ID이고 값은 생성된 카테고리 제목입니다.
+- **설명**: 이 엔드포인트는 항목의 클러스터에 대한 카테고리 제목을 생성합니다.
+- **예시 결과**:
+  - 입력: `{"items": [{"title": "AI 발전", "summary": "인공지능은 빠르게 발전하고 있습니다.", "cluster": 0}, {"title": "AI 기술", "summary": "AI는 다양한 산업에 활용되고 있습니다.", "cluster": 0}, {"title": "환경 보호", "summary": "지구 온난화를 막기 위한 정책들이 필요합니다.", "cluster": 1}]}`
+  - 출력: `{"categories":{"0":"AI Advancements and Applications","1":"Environmental Protection: Policies to Combat Global Warming"}}`
 
-
-
-# hap_main.py 실행 
-## 의존성 설치 
-pip install -r requirements.txt
-
-## API 키 
-.env 파일을 프로젝트 루트에 생성하고 OPENAI_API_KEY 추가 
-
-## 명령어 예시 
-uvicorn hap_main:app --reload
+### 4. 헬스 체크
+- **URL**: `/health-check`
+- **메서드**: GET
+- **응답**:
+  - `status` (문자열): 서비스가 실행 중임을 나타내는 간단한 상태 메시지 (예: "ok").
+- **설명**: 이 엔드포인트는 서비스의 상태를 확인하는 데 사용됩니다.
