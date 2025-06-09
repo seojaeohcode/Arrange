@@ -10,3 +10,11 @@ class InputItem(BaseModel):
 
 class InputList(BaseModel):
     items: List[InputItem]
+
+class ClusteredItem(BaseModel):
+    title: str
+    summary: str
+    cluster: int
+
+class ClusteredInput(BaseModel):
+    items: List[ClusteredItem]
