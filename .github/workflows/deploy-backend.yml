@@ -1,0 +1,307 @@
+name: Deploy Backend pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) 레포 선택적 체크아웃
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # 2) Runner → EC2 접속용 SSH 키
+      - name: Prepare SSH key for EC2
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      # 3) EC2 안에서 레포 클론/업데이트
+      - name: Deploy – clone or pull on EC2
+        env:
+          EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} \
+              ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+              "EC2_GIT_KEY='${EC2_GIT_KEY}' bash -s" <<'          EOF'
+            set -euo pipefail
+
+            # 1) GitHub 배포 키 등록
+            mkdir -p ~/.ssh
+            printf '%s\n' "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+            # 2) 레포 클론/풀
+            REPO_DIR="$HOME/app"
+
+            if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+              rm -rf "$REPO_DIR"
+            fi
+
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              git clone --depth 1 git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+            else
+              git -C "$REPO_DIR" pull --ff-only
+            fi
+
+            # 3) Conda 환경 활성화 후 백엔드 실행
+            source ~/miniconda3/etc/profile.d/conda.sh
+            conda activate arrange
+
+            cd "$REPO_DIR/backend"
+
+            # ✅ 기존 uvicorn 프로세스 종료
+            if pgrep -f "uvicorn main:app" > /dev/null; then
+              echo "Killing existing uvicorn process..."
+              pkill -f "uvicorn main:app"
+              sleep 2
+            fi
+
+            PYTHONPATH="$HOME/app" nohup uvicorn main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.log 2>&1 &
+
+
+#          EOF
+
+
+# name: Deploy
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout repository (optional)
+#         uses: actions/checkout@v3
+
+#       - name: Setup SSH key for EC2 connection
+#         run: |
+#           mkdir -p ~/.ssh
+#           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+#           chmod 600 ~/.ssh/id_rsa
+#           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+#       - name: Deploy to EC2 and clone/pull repo
+#         env:
+#           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
+#         run: |
+#           ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+#             set -e
+
+#             mkdir -p ~/.ssh
+#             echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+#             chmod 600 ~/.ssh/id_rsa
+#             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+#             REPO_DIR=~/app
+#             if [ -d "$REPO_DIR" ] && [ ! -d "$REPO_DIR/.git" ]; then
+#               rm -rf "$REPO_DIR"
+#             fi
+
+#             if [ ! -d "$REPO_DIR/.git" ]; then
+#               git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+#             else
+#               cd "$REPO_DIR"
+#               git pull
+#             fi
+#           EOF
+
+
+# name: Deploy to EC2
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout repository (optional, if needed locally)
+#         uses: actions/checkout@v3
+
+#       - name: Setup SSH key for EC2 connection
+#         run: |
+#           mkdir -p ~/.ssh
+#           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+#           chmod 600 ~/.ssh/id_rsa
+#           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+#       - name: Copy files to EC2 (optional, if you want to SCP files)
+#         run: |
+#           scp -i ~/.ssh/id_rsa -P ${{ secrets.PORT }} -r ./backend ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/app
+
+#       - name: Setup Deploy Key on EC2 & Update Repository
+#         env:
+#           EC2_GIT_KEY: ${{ secrets.EC2_GIT_KEY }}
+#         run: |
+#           ssh -i ~/.ssh/id_rsa -p ${{ secrets.PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+#             set -e
+#             mkdir -p ~/.ssh
+#             echo "$EC2_GIT_KEY" > ~/.ssh/id_rsa
+#             chmod 600 ~/.ssh/id_rsa
+#             ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+#             REPO_DIR=~/app
+#             if [ ! -d "$REPO_DIR/.git" ]; then
+#               git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+#             else
+#               cd "$REPO_DIR"
+#               git pull
+#             fi
+#           EOF
+
+
+
+
+# name: deploy
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+
+#       - name: Deploy via SSH
+#         uses: appleboy/ssh-action@v1
+#         with:
+#           host: ${{ secrets.EC2_HOST }}
+#           username: ${{ secrets.EC2_USER }}
+#           key: ${{ secrets.EC2_SSH_KEY }}
+#           port: ${{ secrets.PORT }}
+#           script: |
+#             set -e
+
+#             sudo dnf -y install git
+
+#             # GitHub 접근용 SSH 키 설정 (Deploy Key)
+#             mkdir -p ~/.ssh
+#             echo "${{ secrets.EC2_GIT_KEY }}" > ~/.ssh/id_rsa
+#             chmod 600 ~/.ssh/id_rsa
+
+#             # GitHub 호스트 키 등록 (보안상 검증 권장)
+#             ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+#             REPO_DIR=/home/${{ secrets.EC2_USER }}/app
+#             if [ ! -d "$REPO_DIR/.git" ]; then
+#               git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+#             else
+#               cd "$REPO_DIR"
+#               git pull
+#             fi
+
+
+# name: deploy
+# on:
+#   push:
+#     branches: [ main ]
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: SSH deploy
+#         uses: appleboy/ssh-action@v1
+#         with:
+#           host:     ${{ secrets.EC2_HOST }}
+#           username: ${{ secrets.EC2_USER }}
+#           key:      ${{ secrets.EC2_SSH_KEY }}   # EC2 접속용 PEM 키
+#           script: |
+#             set -e
+#             sudo dnf -y install git
+
+#             # GitHub 접근용 SSH 키 설정 (Deploy Key의 개인키)
+#             mkdir -p ~/.ssh
+#             echo "${{ secrets.EC2_GIT_KEY }}" | tee ~/.ssh/id_rsa > /dev/null
+#             chmod 600 ~/.ssh/id_rsa
+
+#             # GitHub 호스트 인증 스킵 (보안 신경 쓸 경우 직접 검증하세요)
+#             ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+#             REPO_DIR=/home/${{ secrets.EC2_USER }}/Arrange
+#             if [ ! -d "$REPO_DIR/.git" ]; then
+#               git clone git@github.com:seojaeohcode/Arrange.git "$REPO_DIR"
+#             fi
+#             cd "$REPO_DIR"
+#             git pull
+
+#             BACKEND=$REPO_DIR/backend
+#             if [ ! -d "$BACKEND/venv" ]; then
+#               python3 -m venv "$BACKEND/venv"
+#             fi
+#             source "$BACKEND/venv/bin/activate"
+#             pip install -r "$BACKEND/requirements.txt"
+
+#             pkill -f "uvicorn app.main:app" || true
+#             cd "$BACKEND"
+#             nohup ./venv/bin/uvicorn app.main:app \
+#                   --host 0.0.0.0 --port 8000 --reload \
+#                   > ../uvicorn.out 2>&1 &
+
+# name: Deploy to EC2
+
+# on:
+#   push:
+#     branches: [ main ]
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#     - name: Checkout
+#       uses: actions/checkout@v2
+
+#     - name: Set up Python
+#       uses: actions/setup-python@v2
+#       with:
+#         python-version: "3.10"
+
+#     - name: Install deps
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install -r backend/requirements.txt
+
+#     # ① 코드 업로드 (scp/rsync 전용 액션 사용 -- SSH 한 번)
+#     - name: Copy backend to EC2
+#       uses: appleboy/scp-action@v0.1.1
+#       with:
+#         host: ${{ secrets.EC2_HOST }}
+#         username: ${{ secrets.EC2_USER }}          
+#         key: ${{ secrets.EC2_SSH_KEY }}
+#         source: "backend/"
+#         target: "/home/${{ secrets.EC2_USER }}/myproject/backend"
+
+#     # ② 원격 실행 (ssh-action -- 두 번째 SSH)
+#     - name: Remote deploy commands
+#       uses: appleboy/ssh-action@v0.1.2
+#       with:
+#         host: ${{ secrets.EC2_HOST }}
+#         username: ${{ secrets.EC2_USER }}         
+#         key: ${{ secrets.EC2_SSH_KEY }}
+#         script: |
+#           PROJECT_DIR=/home/${{ secrets.EC2_USER }}/myproject/backend
+#           cd $PROJECT_DIR
+#           # 이미 떠 있는 프로세스가 있다면 종료(선택)
+#           pkill -f "uvicorn app.main:app" || true
+#           # 새로 실행
+#           nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.out 2>&1 &
