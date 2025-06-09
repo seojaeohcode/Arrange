@@ -21,4 +21,4 @@ def cluster(data: InputList):
 
 @app.get("/health-check")
 def health_check():
-    return {"status": "fixed"}
+    return {"status": "fixed2"}
