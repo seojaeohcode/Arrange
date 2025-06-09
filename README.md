@@ -48,3 +48,22 @@ http://54.196.39.51:8000 (/generate_title) -> 예시
 - **응답**:
   - `status` (문자열): 서비스가 실행 중임을 나타내는 간단한 상태 메시지 (예: "ok").
 - **설명**: 이 엔드포인트는 서비스의 상태를 확인하는 데 사용됩니다.
+
+## 명령어 복붙 정리
+1) 제목 생성
+curl -X POST "http://54.196.39.51:8000/generate_title" \
+     -H "Content-Type: application/json" \
+     -d '{"summary":"이 논문은 트랜스포머 기반 다국어 악성 패키지 탐지 방법을 제안한다."}'
+
+2) 아이템 클러스터링
+curl -X POST "http://54.196.39.51:8000/cluster" \
+     -H "Content-Type: application/json" \
+     -d '{"items":[{"title":"AI 발전","summary":"인공지능은 빠르게 발전하고 있습니다."},{"title":"환경 보호","summary":"지구 온난화를 막기 위한 정책들이 필요합니다."},{"title":"AI 기술","summary":"AI는 다양한 산업에 활용되고 있습니다."}]}'
+
+3) 헬스 체크
+curl -X GET "http://54.196.39.51:8000/health-check"
+
+4) 카테고리별 제목 생성
+curl -X POST "http://54.196.39.51:8000/generate_category_titles" \
+     -H "Content-Type: application/json" \
+     -d '{"items":[{"title":"AI 발전","summary":"인공지능은 빠르게 발전하고 있습니다.","cluster":0},{"title":"AI 기술","summary":"AI는 다양한 산업에 활용되고 있습니다.","cluster":0},{"title":"환경 보호","summary":"지구 온난화를 막기 위한 정책들이 필요합니다.","cluster":1}]}'
