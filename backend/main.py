@@ -6,6 +6,8 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 import logging
 from hdbscan import HDBSCAN
+import umap
+from sklearn.decomposition import PCA
 
 app = FastAPI(title="Multilingual GPT Title Generator & Clustering API")
 
@@ -29,9 +31,19 @@ async def process_bookmarks(data: InputList):
     texts = [f"{i['title']} {i['summary']}" for i in generated_items]
     embeddings = embedding_model.encode(texts)
     embeddings_scaled = StandardScaler().fit_transform(embeddings)
-    # HDBSCAN을 사용하여 클러스터링
-    hdbscan_clusterer = HDBSCAN(min_cluster_size=1, min_samples=1, metric='euclidean')
-    labels = hdbscan_clusterer.fit_predict(embeddings_scaled)
+
+    # ① PCA (최대 30차원으로 축소)
+    n_pca = min(10, embeddings_scaled.shape[1] - 1)
+    if embeddings_scaled.shape[1] > 30:
+        embeddings_scaled = PCA(n_components=n_pca, random_state=42).fit_transform(embeddings_scaled)
+
+    # 4) UMAP 차원 축소
+    reducer = umap.UMAP(n_neighbors=10, min_dist=0.1, metric='cosine', n_components=20, random_state=42)
+    X_umap = reducer.fit_transform(embeddings_scaled)
+
+    # 5) HDBSCAN 클러스터링
+    clusterer = HDBSCAN(min_cluster_size=1, min_samples=1, metric='euclidean')
+    labels = clusterer.fit_predict(X_umap)
 
     # 3. 카테고리명 생성 (클러스터별 요약 + 제목)
     cluster_dict = defaultdict(list)
