@@ -137,6 +137,7 @@ async def process_bookmarks(data: InputList):
 
         <나쁜예시>
         ❌ "소프트웨어 아키텍처 설" (단어 잘림)
+        ❌ ""\"도시 여행 정보\"" (\" 특수문자 포함)
         </나쁜예시>
 
         <task>
