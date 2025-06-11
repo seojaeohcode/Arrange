@@ -15,13 +15,13 @@ def generate_title_from_summary(summary: str) -> str:
     """
     Detect the language of `summary` and return a short, relevant title
     in the same language. Output must be a single, complete line
-    (3‒8 어절 / words), with no punctuation or quotes.
+    (1‒8 어절 / words), with no punctuation or quotes.
     """
 
     user_prompt = f"""
     ## 규칙 / Rules
     1) Detect the language of the summary and respond in that language.  
-    2) **3‒8개의 ‘완전한 어절(띄어쓰기 단위)’**만 사용. **어절을 중간에 끊지 말 것.**  
+    2) **1‒8개의 ‘완전한 어절(띄어쓰기 단위)’**만 사용. **어절을 중간에 끊지 말 것.**  
     3) 출력은 한 줄, 마침표·따옴표·쉼표 금지.  
     4) 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택하세요.
 
@@ -29,13 +29,13 @@ def generate_title_from_summary(summary: str) -> str:
     Summary:
     트랜스포머 기반 다국어 악성 패키지 탐지 방법을 제안한다.
     Bad Title: 트랜스포머 악성 패   ← 어절 잘림 ⚠️
-    Good Title: 트랜스포머 기반 악성 패키지 탐지
+    Good Title: 악성 패키지 탐지
 
     ## Example (English)
     Summary:
     Global oil prices have surged due to geopolitical tensions.
     Good Title: Global Oil Price Surge
-    
+
     ## Task
     Summary:
     \"\"\"{summary}\"\"\"
