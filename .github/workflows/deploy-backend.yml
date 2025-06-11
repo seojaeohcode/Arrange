@@ -63,7 +63,7 @@ jobs:
             # ✅ 기존 uvicorn 프로세스 종료
             if pgrep -f "uvicorn backend.main:app" > /dev/null; then
               echo "Killing existing uvicorn process..."
-              pkill -f "uvicorn backend.main:app"
+              pkill -f "uvicorn app.main:app"
               sleep 2
             fi
 
