@@ -3,6 +3,7 @@ from typing import List
 
 class SummaryInput(BaseModel):
     summary: str
+    title: str
 
 class InputItem(BaseModel):
     title: str

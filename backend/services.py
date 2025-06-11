@@ -11,7 +11,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-def generate_title_from_summary(summary: str, title: str) -> str:
+def generate_title_from_summary(title: str, summary: str) -> str:
     """
     Detect the language of `summary` and `title`, and return a short, relevant title
     in the same language. Output must be a single, complete line
