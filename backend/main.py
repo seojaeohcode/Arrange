@@ -101,7 +101,7 @@ async def process_bookmarks(data: InputList):
 
 @app.get("/health-check")
 def health_check():
-    return {"status": "status"}
+    return {"status": "status2"}
 
 # @app.post("/cluster")
 # def cluster(data: InputList):
