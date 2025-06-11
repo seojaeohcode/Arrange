@@ -22,7 +22,7 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     - 출력은 한 줄
     - 마침표·쉼표·따옴표·괄호 등 모든 구두점 및 특수문자 금지.
     - 한 줄로만 출력
-    - 최대 15토큰 이내로 출력
+    - 최대 15토큰 정도로 출력
     </primary_rules>
 
     <prioritization>
@@ -72,7 +72,7 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     </input_data>
 
     <output_format>
-    생성된 제목을 15토큰 이내로 어절이 잘리지 않게게 출력하세요. 추가 설명이나 메타데이터는 포함하지 마세요. 마침표·쉼표·따옴표·괄호 등 모든 구두점 및 특수문자 금지.
+    생성된 제목을 15토큰 정도도로 어절이 잘리지 않게게 출력하세요. 추가 설명이나 메타데이터는 포함하지 마세요. 마침표·쉼표·따옴표·괄호 등 모든 구두점 및 특수문자 금지.
     </output_format>
     </task>
 
@@ -85,7 +85,7 @@ def generate_title_from_summary(title: str, summary: str) -> str:
             "content": (
                 "당신은 한국어 콘텐츠 제목 최적화 전문가입니다. "
                 "주어진 지침을 정확히 따라 간결하고 효과적인 제목을 생성하세요. "
-                "출력은 반드시 15토큰 이내로 작성해야 합니다."
+                "출력은 반드시 15토큰 정도로 작성해야 합니다."
             ),
         },
         {"role": "user", "content": user_prompt},
@@ -95,7 +95,7 @@ def generate_title_from_summary(title: str, summary: str) -> str:
         model="gpt-3.5-turbo",
         messages=messages,
         temperature=0.5,
-        max_tokens=15,
+        max_tokens=20,
     )
 
     return response.choices[0].message.content.strip()
