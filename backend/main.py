@@ -171,6 +171,7 @@ async def process_bookmarks(data: InputList):
                     "당신은 문서 분류 및 카테고리 생성 전문가입니다. "
                     "주어진 문서들의 공통 주제를 정확히 파악하여 간결하고 명확한 카테고리명을 생성하세요. "
                     "출력은 반드시 카테고리명 한 줄만 포함해야 합니다."
+                    "출력은 반드시 15토큰 정도로 작성해야 합니다."
                 ),
             },
             {"role": "user", "content": user_prompt},
@@ -178,7 +179,7 @@ async def process_bookmarks(data: InputList):
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=new_messages,
-            temperature=0.7,
+            temperature=0.5,
             max_tokens=20
         )
         categories[str(cluster_id)] = response.choices[0].message.content.strip()
