@@ -165,7 +165,7 @@ async def process_bookmarks(data: InputList):
     for item, label in zip(generated_items, labels):
         result.append({"id": item["id"], "cluster": int(label)})
 
-    return {"clusters": result, "categories": categories}
+    return categories
 
 @app.get("/health-check")
 def health_check():
