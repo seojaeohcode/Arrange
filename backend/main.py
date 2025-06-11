@@ -42,7 +42,7 @@ async def process_bookmarks(data: InputList):
     X_umap = reducer.fit_transform(embeddings_scaled)
 
     # 5) HDBSCAN 클러스터링
-    clusterer = HDBSCAN(min_cluster_size=1, min_samples=1, metric='euclidean')
+    clusterer = HDBSCAN(min_cluster_size=4, min_samples=1, metric='euclidean')
     labels = clusterer.fit_predict(X_umap)
 
     # 3. 카테고리명 생성 (클러스터별 요약 + 제목)
