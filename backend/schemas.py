@@ -6,6 +6,7 @@ class SummaryInput(BaseModel):
     title: str
 
 class InputItem(BaseModel):
+    id: int
     title: str
     summary: str
 

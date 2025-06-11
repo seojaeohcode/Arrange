@@ -45,6 +45,8 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     {summary}
     Title:
     {title}
+
+    ## Note: Give more weight to the `title` when generating the new title.
     Generated Title:
     """
 

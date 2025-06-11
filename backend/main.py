@@ -19,13 +19,13 @@ def generate_title(data: SummaryInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@app.post("/process_bookmarks")
+@app.post("/cluster")
 async def process_bookmarks(data: InputList):
     # 1. 제목 생성 (입력 요약으로)
     generated_items = []
     for item in data.items:
         # 제목을 생성하지 않고 입력으로 받은 제목을 그대로 사용
-        generated_items.append({"title": item.title, "summary": item.summary})
+        generated_items.append({"id": item.id, "title": item.title, "summary": item.summary})
 
     # 2. 클러스터링 (생성된 제목 + 요약 이용)
     texts = [f"{i['title']} {i['summary']}" for i in generated_items]
@@ -95,7 +95,7 @@ async def process_bookmarks(data: InputList):
     # 결과 리턴
     result = []
     for item, label in zip(generated_items, labels):
-        result.append({"title": item["title"], "summary": item["summary"], "cluster": int(label)})
+        result.append({"id": item["id"], "cluster": int(label)})
 
     return {"clusters": result, "categories": categories}
 

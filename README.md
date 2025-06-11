@@ -15,21 +15,22 @@ http://54.196.39.51:8000 (/generate_title) -> 예시
   - `summary` (string): 제목을 생성할 요약문.
 - **응답**:
   - `title` (string): 제공된 요약문과 제목을 기반으로 생성된 제목.
-- **설명**: 이 엔드포인트는 요약문과 기존 제목을 입력으로 받아 동일한 언어로 간결하고 적절한 제목을 반환합니다.
+- **설명**: 이 엔드포인트는 요약문과 기존 제목을 입력으로 받아 동일한 언어로 간결하고 적절한 제목을 반환합니다. **제목에 더 많은 가중치를 두어 생성합니다.**
 
 ### 2. 북마크 일괄 처리
-- **URL**: `/process_bookmarks`
+- **URL**: `/cluster`
 - **메서드**: POST
 - **요청 본문**:
-  - `items` (list of objects): 각 객체는 `title` (string)과 `summary` (string) 필드를 포함해야 합니다.
+  - `items` (list of objects): 각 객체는 `id` (integer), `title` (string), `summary` (string) 필드를 포함해야 합니다.
 - **응답**:
-  - `clusters` (list of objects): 각 객체는 생성된 `title` (string), 원본 `summary` (string), 그리고 `cluster` 번호 (integer)를 포함합니다.
+  - `clusters` (list of objects): 각 객체는 `id` (integer)와 `cluster` 번호 (integer)를 포함합니다.
   - `categories` (dictionary): 클러스터별 생성된 카테고리 제목을 포함합니다.
 - **설명**:  
   입력된 원본 북마크 제목과 요약을 바탕으로,  
   1) GPT 기반 제목을 새로 생성하고,  
-  2) 생성된 제목과 요약을 합쳐 임베딩 → HDBSCAN 클러스터링 후,  
-  3) 각 클러스터에 대해 GPT로 대표 카테고리 제목을 생성하는 통합 API입니다.
+  2) 생성된 제목과 요약을 합쳐 임베딩 → **UMAP을 사용한 차원 축소 후 HDBSCAN 클러스터링**을 수행하며,  
+  3) 각 클러스터에 대해 GPT로 대표 카테고리 제목을 생성하는 통합 API입니다.  
+  각 북마크는 `id`로 구분되며, 응답에는 각 `id`에 대한 클러스터 정보만 포함됩니다.
 
 ### 3. 헬스 체크
 - **URL**: `/health-check`
