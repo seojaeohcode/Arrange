@@ -62,14 +62,14 @@ async def process_bookmarks(data: InputList):
         3) 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택할 것.
         4) 한국어로 작성.
         5) 각 줄은 '제목: 요약' 형식이며, 그 내용을 보고 공통 주제를 대표하는 카테고리명을 생성할 것.
-        
+
         ## Bad vs. Good 예시
         [잘못된 예] 트랜스포머 악성 패
         [올바른 예] 트랜스포머 기반 악성패키지 탐지
-        
+
         ## 글 묶음 (title: summary)
         {joined_text}
-        
+
         카테고리명:
         """
 
@@ -101,7 +101,7 @@ async def process_bookmarks(data: InputList):
 
 @app.get("/health-check")
 def health_check():
-    return {"status": "status"}
+    return {"status": "status2"}
 
 # @app.post("/cluster")
 # def cluster(data: InputList):
