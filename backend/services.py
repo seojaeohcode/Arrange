@@ -20,8 +20,10 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     - 정확히 1-3개의 완전한 어절(띄어쓰기 단위)만 사용
     - 어절을 절대 중간에 끊거나 자르지 않음
     - 한국어로만 작성
-    - 마침표, 쉼표, 따옴표 등 구두점 사용 금지
+    - 출력은 한 줄
+    - 마침표·쉼표·따옴표·괄호 등 모든 구두점 및 특수문자 금지.
     - 한 줄로만 출력
+    - 최대 15토큰 이내로 출력
     </primary_rules>
 
     <prioritization>
@@ -71,7 +73,7 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     </input_data>
 
     <output_format>
-    생성된 제목을 15토큰 이내로 어절이 잘리지 않게게 출력하세요. 추가 설명이나 메타데이터는 포함하지 마세요.
+    생성된 제목을 15토큰 이내로 어절이 잘리지 않게게 출력하세요. 추가 설명이나 메타데이터는 포함하지 마세요. 마침표·쉼표·따옴표·괄호 등 모든 구두점 및 특수문자 금지.
     </output_format>
     </task>
 
