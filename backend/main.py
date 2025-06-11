@@ -69,6 +69,8 @@ async def process_bookmarks(data: InputList):
         - 카테고리명은 최대 10토큰 정도로 출력
         - 각 줄은 '제목: 요약' 형식이며, 그 내용을 보고 공통 주제를 대표하는 카테고리명을 생성할 것.
         - 한국어로만 작성
+        - 절대 특수문자 및 구두점을 포함하지 않는다.
+        - 절대 특수문자 및 구두점을 포함하지 않는다, 카테고리명은 최대 10토큰 정도로 출력 이 2가지 규칙은 절대 잊지 않는다.
         </primary_rules>
 
         <analysis_approach>
@@ -155,7 +157,7 @@ async def process_bookmarks(data: InputList):
         </analysis_process>
 
         <output_format>
-        분석 결과로 도출된 카테고리명을 10토큰 정도로 출력하세요. 추가 설명이나 분석 과정은 포함하지 마세요.
+        분석 결과로 도출된 카테고리명을 10토큰 정도로 출력하세요. 추가 설명이나 분석 과정은 포함하지 마세요. 절대 특수문자 및 구두점을 포함하지 마시오.
         </output_format>
         </task>
 
