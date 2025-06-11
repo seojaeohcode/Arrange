@@ -126,4 +126,4 @@ async def process_bookmarks(data: InputList):
 
 @app.get("/health-check")
 def health_check():
-    return {"status": "ok2"}
+    return {"status": "ok3"}
