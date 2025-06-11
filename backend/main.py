@@ -31,7 +31,7 @@ async def cluster_items(data: InputList):
     texts = [f"{item.title} {item.summary}" for item in data.items]
     embeddings = embedding_model.encode(texts)
     embeddings_scaled = StandardScaler().fit_transform(embeddings)
-    dbscan = DBSCAN(eps=0.5, min_samples=2, metric='euclidean')
+    dbscan = DBSCAN(eps=0.5, min_samples=1, metric='euclidean')
     labels = dbscan.fit_predict(embeddings_scaled)
 
     result = []
