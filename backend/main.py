@@ -40,11 +40,17 @@ async def process_bookmarks(data: InputList):
     categories = {}
     for cluster_id, texts in cluster_dict.items():
         joined_text = "\n".join(texts[:5])
-        prompt = f"""Generate a category name based on the title and summary."""
+        prompt = f"""
+        The following are summaries and titles of bookmarks that belong to the same cluster.
+        Generate a short and clear category name that best represents the topic of this cluster.
+        Documents:
+        {joined_text}
+        Category title:
+        """
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant..."},
+                {"role": "system", "content": "You are a helpful assistant that summarizes a list of texts into a concise category name."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7,
