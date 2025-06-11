@@ -75,6 +75,49 @@ Category title (in English):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/process_bookmarks")
+async def process_bookmarks(data: InputList):
+    # 1. 제목 생성 (입력 요약으로)
+    generated_items = []
+    for item in data.items:
+        generated_title = generate_title_from_summary(item.summary)
+        generated_items.append({"title": generated_title, "summary": item.summary})
+
+    # 2. 클러스터링 (생성된 제목 + 요약 이용)
+    texts = [f"{i['title']} {i['summary']}" for i in generated_items]
+    embeddings = embedding_model.encode(texts)
+    embeddings_scaled = StandardScaler().fit_transform(embeddings)
+    dbscan = DBSCAN(eps=0.5, min_samples=2, metric='euclidean')
+    labels = dbscan.fit_predict(embeddings_scaled)
+
+    # 3. 카테고리명 생성 (클러스터별 요약 + 제목)
+    cluster_dict = defaultdict(list)
+    for item, label in zip(generated_items, labels):
+        if label != -1:
+            cluster_dict[label].append(f"{item['title']}: {item['summary']}")
+
+    categories = {}
+    for cluster_id, texts in cluster_dict.items():
+        joined_text = "\n".join(texts[:5])
+        prompt = f"""[Prompt 작성]"""
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant..."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=30
+        )
+        categories[str(cluster_id)] = response.choices[0].message.content.strip()
+
+    # 결과 리턴
+    result = []
+    for item, label in zip(generated_items, labels):
+        result.append({"title": item["title"], "summary": item["summary"], "cluster": int(label)})
+
+    return {"clusters": result, "categories": categories}
+
 @app.get("/health-check")
 def health_check():
     return {"status": "fixed2"}

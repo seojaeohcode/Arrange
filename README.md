@@ -49,6 +49,46 @@ http://54.196.39.51:8000 (/generate_title) -> 예시
   - `status` (문자열): 서비스가 실행 중임을 나타내는 간단한 상태 메시지 (예: "ok").
 - **설명**: 이 엔드포인트는 서비스의 상태를 확인하는 데 사용됩니다.
 
+### 5. 북마크 일괄 처리
+
+- **URL**: `/process_bookmarks`
+- **메서드**: POST
+- **요청 본문**:
+  - `items` (객체 리스트): 각 객체는 `title`과 `summary` 필드를 포함해야 합니다.
+- **응답**:
+  - `clusters` (객체 리스트): 각 객체는 생성된 `title`, 원본 `summary`, 그리고 `cluster` 번호를 포함합니다.
+  - `categories` (사전): 클러스터별 생성된 카테고리 제목을 포함합니다.
+- **설명**:  
+  입력된 원본 북마크 제목과 요약을 바탕으로,  
+  1) GPT 기반 제목을 새로 생성하고,  
+  2) 생성된 제목과 요약을 합쳐 임베딩 → DBSCAN 클러스터링 후,  
+  3) 각 클러스터에 대해 GPT로 대표 카테고리 제목을 생성하는 통합 API입니다.
+- **예시 결과**:
+  - 입력:  
+    ```json
+    {
+      "items": [
+        {"title": "원제목1", "summary": "요약1"},
+        {"title": "원제목2", "summary": "요약2"},
+        {"title": "원제목3", "summary": "요약3"}
+      ]
+    }
+    ```
+  - 출력:  
+    ```json
+    {
+      "clusters": [
+        {"title": "생성된 제목1", "summary": "요약1", "cluster": 0},
+        {"title": "생성된 제목2", "summary": "요약2", "cluster": 0},
+        {"title": "생성된 제목3", "summary": "요약3", "cluster": 1}
+      ],
+      "categories": {
+        "0": "카테고리명 A",
+        "1": "카테고리명 B"
+      }
+    }
+    ```
+
 ## 명령어 복붙 정리
 1) 제목 생성
 curl -X POST "http://54.196.39.51:8000/generate_title" \
@@ -67,3 +107,8 @@ curl -X GET "http://54.196.39.51:8000/health-check"
 curl -X POST "http://54.196.39.51:8000/generate_category_titles" \
      -H "Content-Type: application/json" \
      -d '{"items":[{"title":"AI 발전","summary":"인공지능은 빠르게 발전하고 있습니다.","cluster":0},{"title":"AI 기술","summary":"AI는 다양한 산업에 활용되고 있습니다.","cluster":0},{"title":"환경 보호","summary":"지구 온난화를 막기 위한 정책들이 필요합니다.","cluster":1}]}'
+
+5) 북마크 일괄 처리
+curl -X POST "http://54.196.39.51:8000/process_bookmarks" \
+     -H "Content-Type: application/json" \
+     -d '{"items":[{"title":"원제목1","summary":"요약1"},{"title":"원제목2","summary":"요약2"},{"title":"원제목3","summary":"요약3"}]}'
