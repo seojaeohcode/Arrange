@@ -33,16 +33,16 @@ async def process_bookmarks(data: InputList):
     embeddings_scaled = StandardScaler().fit_transform(embeddings)
 
     # ① PCA (최대 30차원으로 축소)
-    n_pca = min(15, embeddings_scaled.shape[1] - 1)
+    n_pca = min(10, embeddings_scaled.shape[1] - 1)
     if embeddings_scaled.shape[1] > 30:
         embeddings_scaled = PCA(n_components=n_pca, random_state=42).fit_transform(embeddings_scaled)
 
     # 4) UMAP 차원 축소
-    reducer = umap.UMAP(n_neighbors=15, min_dist=0.05, metric='cosine', n_components=10, random_state=42)
+    reducer = umap.UMAP(n_neighbors=5, min_dist=0.0, metric='cosine', n_components=20, init='random', random_state=42)
     X_umap = reducer.fit_transform(embeddings_scaled)
 
     # 5) HDBSCAN 클러스터링
-    clusterer = HDBSCAN(min_cluster_size=5, min_samples=2, metric='euclidean')
+    clusterer = HDBSCAN(min_cluster_size=3, min_samples=1, metric='euclidean')
     labels = clusterer.fit_predict(X_umap)
 
     # 3. 카테고리명 생성 (클러스터별 요약 + 제목)
