@@ -5,6 +5,7 @@ from backend.services import generate_title_from_summary, cluster_items, embeddi
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 import logging
+from hdbscan import HDBSCAN
 
 app = FastAPI(title="Multilingual GPT Title Generator & Clustering API")
 
@@ -28,8 +29,9 @@ async def process_bookmarks(data: InputList):
     texts = [f"{i['title']} {i['summary']}" for i in generated_items]
     embeddings = embedding_model.encode(texts)
     embeddings_scaled = StandardScaler().fit_transform(embeddings)
-    dbscan = DBSCAN(eps=20.0, min_samples=1, metric='euclidean')
-    labels = dbscan.fit_predict(embeddings_scaled)
+    # HDBSCAN을 사용하여 클러스터링
+    hdbscan_clusterer = HDBSCAN(min_cluster_size=1, min_samples=1, metric='euclidean')
+    labels = hdbscan_clusterer.fit_predict(embeddings_scaled)
 
     # 3. 카테고리명 생성 (클러스터별 요약 + 제목)
     cluster_dict = defaultdict(list)
@@ -48,7 +50,7 @@ async def process_bookmarks(data: InputList):
         - **단어를 중간에 자르지 말 것** (예: '패'처럼 잘림 금지)
         - 구두점·따옴표·괄호 사용 금지
         - 한국어로 작성
-        - 결과는 ‘카테고리명’ 한 줄만 출력
+        - 결과는 '카테고리명' 한 줄만 출력
         
         [잘못된 예] 트랜스포머 악성 패
         [올바른 예] 트랜스포머 기반 악성패키지 탐지
@@ -70,19 +72,8 @@ async def process_bookmarks(data: InputList):
             },
             {"role": "user", "content": user_prompt},
         ]
-        # prompt = f"""
-        # The following are summaries and titles of bookmarks that belong to the same cluster.
-        # Generate a short and clear category name that best represents the topic of this cluster.
-        # Documents:
-        # {joined_text}
-        # Category title:
-        # """
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            # messages=[
-            #     {"role": "system", "content": "You are a helpful assistant that summarizes a list of texts into a concise category name."},
-            #     {"role": "user", "content": prompt}
-            # ],
             messages=new_messages,
             temperature=0.3,
             max_tokens=15
