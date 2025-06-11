@@ -1,18 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import useBookmarkStore from '../store/useBookmarkStore';
 import { BookmarkStats } from '../types';
 import { getBookmarkStats } from '../api/bookmarkApi';
 
-const DashboardPage: React.FC = () => {
+const Dashboard: React.FC = () => {
   const { bookmarks, userSettings } = useBookmarkStore();
   const [bookmarkStats, setBookmarkStats] = useState<BookmarkStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // 색상 배열 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  const COLORS = ['#4CAF50', '#2196F3', '#FFC107', '#FF5722', '#9C27B0'];
 
   useEffect(() => {
     const loadStats = async () => {
@@ -34,17 +34,20 @@ const DashboardPage: React.FC = () => {
     loadStats();
   }, [bookmarks]);
 
-  // 방문 횟수 기준 상위 북마크 데이터 가공
-  const mostVisitedData = bookmarkStats?.mostVisited.map(item => ({
-    name: item.title.length > 20 ? `${item.title.substring(0, 20)}...` : item.title,
-    visits: item.count
-  })) || [];
+  // 방문수 기준 Top 3 북마크를 직접 계산
+  const top3Visited = [...bookmarks]
+    .sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0))
+    .slice(0, 3);
 
   // 카테고리별 분포 데이터 가공
-  const categoryDistributionData = bookmarkStats?.categoryDistribution.map(item => ({
-    name: item.categoryName,
-    value: item.count
-  })) || [];
+  const uncategorizedCount = bookmarkStats?.totalBookmarks || 0;
+  const categoryDistributionData = [
+    { name: '미분류', value: uncategorizedCount }
+  ];
+
+  if (top3Visited.length === 0) {
+    return <EmptyState>방문 기록이 있는 북마크가 없습니다.</EmptyState>;
+  }
 
   return (
     <DashboardContainer className={userSettings.darkMode ? 'text-white' : ''}>
@@ -64,53 +67,36 @@ const DashboardPage: React.FC = () => {
       ) : (
         <DashboardContent>
           <StatsOverview>
-            <StatCard className={userSettings.darkMode ? 'bg-gray-800' : 'bg-white'}>
-              <StatTitle>전체 북마크</StatTitle>
+            <StatRow>
+              <StatLabel>전체 북마크</StatLabel>
               <StatValue>{bookmarkStats?.totalBookmarks || bookmarks.length}</StatValue>
-            </StatCard>
-            <StatCard className={userSettings.darkMode ? 'bg-gray-800' : 'bg-white'}>
-              <StatTitle>카테고리</StatTitle>
-              <StatValue>{bookmarkStats?.categoriesCount || 0}</StatValue>
-            </StatCard>
-            <StatCard className={userSettings.darkMode ? 'bg-gray-800' : 'bg-white'}>
-              <StatTitle>최근 추가</StatTitle>
+            </StatRow>
+            <StatRow>
+              <StatLabel>카테고리</StatLabel>
+              <StatValue>1</StatValue>
+            </StatRow>
+            <StatRow>
+              <StatLabel>최근 추가</StatLabel>
               <StatValue>{bookmarkStats?.recentlyAdded.length || 0}</StatValue>
-            </StatCard>
+            </StatRow>
           </StatsOverview>
 
           <ChartSection>
-            <ChartTitle>가장 많이 방문한 북마크</ChartTitle>
-            <ChartContainer className={userSettings.darkMode ? 'bg-gray-800' : 'bg-white'}>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={mostVisitedData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45} 
-                    textAnchor="end" 
-                    height={80} 
-                    stroke={userSettings.darkMode ? '#ccc' : '#666'} 
-                  />
-                  <YAxis stroke={userSettings.darkMode ? '#ccc' : '#666'} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: userSettings.darkMode ? '#333' : '#fff',
-                      color: userSettings.darkMode ? '#fff' : '#333',
-                      border: userSettings.darkMode ? '1px solid #444' : '1px solid #ddd'
-                    }} 
-                  />
-                  <Bar dataKey="visits" fill="#0066cc" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            <ChartTitle>가장 많이 방문한 북마크 Top 3</ChartTitle>
+            <TopList>
+              {top3Visited.map((item, idx) => (
+                <TopListItem key={item.id}>
+                  <Rank>{idx + 1}</Rank>
+                  <TopTitle>{item.title}</TopTitle>
+                  <TopCount>{item.visitCount ?? 0}회</TopCount>
+                </TopListItem>
+              ))}
+            </TopList>
           </ChartSection>
 
           <ChartSection>
             <ChartTitle>카테고리별 북마크 분포</ChartTitle>
-            <ChartContainer className={userSettings.darkMode ? 'bg-gray-800' : 'bg-white'}>
+            <ChartContainer>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -123,17 +109,9 @@ const DashboardPage: React.FC = () => {
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {categoryDistributionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
+                    <Cell fill="#8884d8" />
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: userSettings.darkMode ? '#333' : '#fff',
-                      color: userSettings.darkMode ? '#fff' : '#333',
-                      border: userSettings.darkMode ? '1px solid #444' : '1px solid #ddd'
-                    }} 
-                  />
+                  <Tooltip />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -157,7 +135,7 @@ const DashboardContainer = styled.div`
 const Title = styled.h1`
   font-size: 24px;
   font-weight: 700;
-  margin-bottom: 24px;
+  margin: 8px 0 8px 0;
 `;
 
 const DashboardContent = styled.div`
@@ -167,33 +145,30 @@ const DashboardContent = styled.div`
 `;
 
 const StatsOverview = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
-  margin-bottom: 8px;
-`;
-
-const StatCard = styled.div`
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+`;
+
+const StatRow = styled.div`
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 16px;
+  font-weight: 500;
 `;
 
-const StatTitle = styled.h3`
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  opacity: 0.8;
+const StatLabel = styled.span`
+  color: #666;
 `;
 
-const StatValue = styled.div`
-  font-size: 28px;
-  font-weight: 700;
+const StatValue = styled.span`
+  font-size: 22px;
+  font-weight: bold;
+  color: #388E3C;
 `;
 
 const ChartSection = styled.section`
@@ -204,13 +179,17 @@ const ChartTitle = styled.h2`
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 16px;
+  color: ${props => props.theme.mode === 'dark' ? '#ffffff' : '#2d3748'};
 `;
 
 const ChartContainer = styled.div`
   padding: 16px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: ${props => props.theme.mode === 'dark' 
+    ? '0 4px 6px rgba(255, 255, 255, 0.1)' 
+    : '0 2px 4px rgba(0, 0, 0, 0.1)'};
   transition: all 0.3s ease;
+  background-color: ${props => props.theme.mode === 'dark' ? '#2d3748' : '#ffffff'};
 `;
 
 const LoadingMessage = styled.div`
@@ -252,4 +231,39 @@ const EmptyText = styled.p`
   margin: 0;
 `;
 
-export default DashboardPage; 
+const TopList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+`;
+
+const TopListItem = styled.li`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 15px;
+`;
+
+const Rank = styled.span`
+  font-size: 18px;
+  font-weight: bold;
+  color: #4CAF50;
+  width: 24px;
+`;
+
+const TopTitle = styled.span`
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const TopCount = styled.span`
+  color: #388E3C;
+  font-size: 15px;
+  min-width: 36px;
+  text-align: right;
+`;
+
+export default Dashboard; 

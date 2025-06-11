@@ -9,9 +9,24 @@
     "action": {
       "default_title": "A!rrange 북마크"
     },
+    "background": {
+      "service_worker": "background.js"
+    },
     "permissions": [
       "bookmarks",
       "storage",
-      "sidePanel"
+      "sidePanel",
+      "tabs",
+      "activeTab",
+      "scripting"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["Readability.js", "contentScript.js"]
+      }
     ]
   }

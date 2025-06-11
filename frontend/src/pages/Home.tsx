@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bookmark } from 'types';
 import { flattenBookmarks } from '../utils/transformBookmarks';
 import { buildBookmarkTree } from '../utils/buildBookmarkTree';
+import { BookmarkProcessor } from '../bookmarkProcessor';
 
 // 지연 로딩으로 각 페이지 컴포넌트 가져오기
 const DashboardComponent = lazy(() => import('../components/Dashboard'));
@@ -31,7 +32,7 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     fetchBookmarks();
-  }, []);
+  }, [fetchBookmarks]);
 
   useEffect(() => {
     // 탭(섹션) 변경 시 스크롤 맨 위로 이동
@@ -116,6 +117,17 @@ const Home: React.FC = () => {
     const flat = tree.flatMap(cat => cat.children.map(bm => ({ ...bm, categoryId: cat.id, category: cat.name })));
     localStorage.setItem('bookmarks', JSON.stringify(flat));
     await fetchBookmarks();
+  };
+
+  const handleAddBookmarkClick = async () => {
+    const result = await BookmarkProcessor.processCurrentTab();
+    if (!result.success) {
+      alert(`[${result.step}] 단계에서 실패: ${result.message}`);
+    } else {
+      alert(
+        `북마크 요약 결과\n\n제목: ${result.data?.title}\nURL: ${result.data?.url}\n요약: ${result.data?.summary}`
+      );
+    }
   };
 
   // 컨텐츠 렌더링
@@ -245,27 +257,19 @@ const Home: React.FC = () => {
       </Header>
       <Separator />
       <ContentArea ref={contentAreaRef}>
-        {activeSection === 'HOME' && (
-          <TopBar>
-            <ArrangeButton onClick={handleArrangeClick}>A! 정리</ArrangeButton>
-            <SearchBar>
-              <SearchInput 
-                type="text" 
-                placeholder="북마크 검색" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <SearchIcon>🔍</SearchIcon>
-            </SearchBar>
-            <SyncButton 
-              onClick={syncChromeBookmarks} 
-              title="크롬 북마크 동기화"
-              disabled={isLoading}
-            >
-              {isLoading ? '⏳' : '🔄'}
-            </SyncButton>
-          </TopBar>
-        )}
+        <TopBar>
+          <AddBookmarkButton onClick={handleAddBookmarkClick}>+</AddBookmarkButton>
+          <SearchBar>
+            <SearchInput 
+              type="text" 
+              placeholder="북마크 검색" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <SearchIcon>🔍</SearchIcon>
+          </SearchBar>
+          <ArrangeButton onClick={handleArrangeClick}>A! 정리</ArrangeButton>
+        </TopBar>
         {/* 트리 구조 렌더링 예시 */}
         {bookmarkTree.length > 0 && (
           <div style={{ margin: '16px 0' }}>
@@ -707,6 +711,26 @@ const ArrangeButton = styled.button`
   transition: background 0.2s;
   &:hover {
     background: #388E3C;
+  }
+`;
+
+const AddBookmarkButton = styled.button`
+  background: #4CAF50;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: background 0.2s;
+  &:hover {
+    background: #388e3c;
   }
 `;
 

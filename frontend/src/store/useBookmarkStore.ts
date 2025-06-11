@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Bookmark, Category, UserSettings } from '../types';
+import { Bookmark, UserSettings } from '../types';
 import * as bookmarkApi from '../api/bookmarkApi';
 
 interface BookmarkState {

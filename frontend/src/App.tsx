@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import styled, { ThemeProvider } from 'styled-components';
+import styled, { ThemeProvider, DefaultTheme } from 'styled-components';
 import Home from './pages/Home';
 import useBookmarkStore from './store/useBookmarkStore';
 import { lightTheme, darkTheme } from './styles/theme';
@@ -23,7 +23,7 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider theme={userSettings.darkMode ? darkTheme : lightTheme}>
-      <AppContainer>
+      <AppContainer theme={userSettings.darkMode ? darkTheme : lightTheme}>
         <MainContentWrapper>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -35,7 +35,7 @@ const App: React.FC = () => {
   );
 };
 
-const AppContainer = styled.div`
+const AppContainer = styled.div<{ theme: DefaultTheme }>`
   height: 100vh;
   width: 100%;
   overflow: hidden;
