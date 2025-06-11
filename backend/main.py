@@ -160,7 +160,7 @@ async def process_bookmarks(data: InputList):
             model="gpt-3.5-turbo",
             messages=new_messages,
             temperature=0.5,
-            max_tokens=20
+            max_tokens=40
         )
         categories[str(cluster_id)] = response.choices[0].message.content.strip()
 
