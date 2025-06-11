@@ -56,19 +56,18 @@ async def process_bookmarks(data: InputList):
         joined_text = "\n".join(texts[:5])
         # ── 프롬프트 엔지니어링 적용 ──
         user_prompt = f"""
-        각 줄은 '제목: 요약' 형식입니다.
-        [작성 규칙]
-        - 1‒4개의 **완전한 명사 어절**만 사용
-        - **단어를 중간에 자르지 말 것** (예: '패'처럼 잘림 금지)
-        - 구두점·따옴표·괄호 사용 금지
-        - 한국어로 작성
-        - 결과는 '카테고리명' 한 줄만 출력
-        - 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택하세요.
-
+        ## 규칙 / Rules
+        1) **1‒4개의 '완전한 명사 어절(띄어쓰기 단위)'**만 사용. **어절을 중간에 끊지 말 것.**
+        2) 출력은 한 줄, 마침표·쉼표·따옴표·괄호 금지.
+        3) 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택할 것.
+        4) 한국어로 작성.
+        5) 각 줄은 '제목: 요약' 형식이며, 그 내용을 보고 공통 주제를 대표하는 카테고리명을 생성할 것.
+        
+        ## Bad vs. Good 예시
         [잘못된 예] 트랜스포머 악성 패
         [올바른 예] 트랜스포머 기반 악성패키지 탐지
         
-        [글 묶음]
+        ## 글 묶음 (title: summary)
         {joined_text}
         
         카테고리명:
@@ -102,7 +101,7 @@ async def process_bookmarks(data: InputList):
 
 @app.get("/health-check")
 def health_check():
-    return {"status": "stat"}
+    return {"status": "status"}
 
 # @app.post("/cluster")
 # def cluster(data: InputList):

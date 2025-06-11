@@ -12,25 +12,20 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 def generate_title_from_summary(title: str, summary: str) -> str:
-    """
-    Detect the language of `summary` and `title`, and return a short, relevant title
-    in the same language. Output must be a single, complete line
-    (1‒8 어절 / words), with no punctuation or quotes.
-    """
-
     user_prompt = f"""
     ## 규칙 / Rules
-    1) **1‒8개의 '완전한 어절(띄어쓰기 단위)'**만 사용. **어절을 중간에 끊지 말 것.**  
-    2) 출력은 한 줄, 마침표·따옴표·쉼표 금지.  
-    3) 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택하세요.
-    4) 한국어로 작성
+    1) **1‒8개의 '완전한 어절(띄어쓰기 단위)'**만 사용. **어절을 중간에 끊지 말 것.**
+    2) 출력은 한 줄, 마침표·쉼표·따옴표 금지.
+    3) 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택할 것.
+    4) 한국어로 작성.
+    5) 'title'에 더 많은 가중치를 두어 생성할 것.
     
     ## Bad vs. Good 예시
     Summary:
     트랜스포머 기반 다국어 악성 패키지 탐지 방법을 제안한다.
     Title:
     트랜스포머 기반 탐지
-    Bad Title: 트랜스포머 악성 패   ← 어절 잘림 ⚠️
+    Bad Title: 트랜스포머 악성 패 ← 어절 잘림 ⚠️
     Good Title: 악성 패키지 탐지
     
     ## Task
@@ -38,7 +33,7 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     {summary}
     Title:
     {title}
-
+    
     ## 주의: 'title'에 더 많은 가중치를 두어 생산합니다.
     Generated Title:
     """
