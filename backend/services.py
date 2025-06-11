@@ -20,10 +20,10 @@ def generate_title_from_summary(title: str, summary: str) -> str:
 
     user_prompt = f"""
     ## 규칙 / Rules
-    1) Detect the language of the summary and title, and respond in that language.  
-    2) **1‒8개의 '완전한 어절(띄어쓰기 단위)'**만 사용. **어절을 중간에 끊지 말 것.**  
-    3) 출력은 한 줄, 마침표·따옴표·쉼표 금지.  
-    4) 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택하세요.
+    1) **1‒8개의 '완전한 어절(띄어쓰기 단위)'**만 사용. **어절을 중간에 끊지 말 것.**  
+    2) 출력은 한 줄, 마침표·따옴표·쉼표 금지.  
+    3) 길이를 맞추기 위해 단어를 자를 바엔 핵심어만 선택하세요.
+    4) 한국어로 작성
     
     ## Bad vs. Good 예시
     Summary:
@@ -33,20 +33,13 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     Bad Title: 트랜스포머 악성 패   ← 어절 잘림 ⚠️
     Good Title: 악성 패키지 탐지
     
-    ## Example (English)
-    Summary:
-    Global oil prices have surged due to geopolitical tensions.
-    Title:
-    Oil Price Surge
-    Good Title: Global Oil Price Surge
-    
     ## Task
     Summary:
     {summary}
     Title:
     {title}
 
-    ## Note: Give more weight to the `title` when generating the new title.
+    ## 주의: 'title'에 더 많은 가중치를 두어 생산합니다.
     Generated Title:
     """
 
