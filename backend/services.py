@@ -53,7 +53,7 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     요약: "사물인터넷 환경의 보안 취약점을 해결하기 위해 블록체인 기술을 활용한 새로운 보안 아키텍처를 제안합니다."
 
     올바른 출력: "IoT 보안 프레임워크"
-    잘못된 출력: "블록체인 IoT 보안 아키텍처 설계 방법" ← 15토큰 초과
+    잘못된 출력: "블록체인 IoT 보안 아키텍처 설계 방법" ← 20토큰 초과
     </example_2>
 
     <example_3>
