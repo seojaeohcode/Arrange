@@ -61,9 +61,9 @@ jobs:
             chmod 600 .env
 
             # ✅ 기존 uvicorn 프로세스 종료
-            if pgrep -f "uvicorn app.main:app" > /dev/null; then
+            if pgrep -f "uvicorn backend.main:app" > /dev/null; then
               echo "Killing existing uvicorn process..."
-              pkill -f "uvicorn app.main:app"
+              pkill -f "uvicorn backend.main:app"
               sleep 2
             fi
 
