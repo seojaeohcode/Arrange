@@ -28,7 +28,7 @@ async def process_bookmarks(data: InputList):
     texts = [f"{i['title']} {i['summary']}" for i in generated_items]
     embeddings = embedding_model.encode(texts)
     embeddings_scaled = StandardScaler().fit_transform(embeddings)
-    dbscan = DBSCAN(eps=3.0, min_samples=1, metric='euclidean')
+    dbscan = DBSCAN(eps=0.5, min_samples=2, metric='euclidean')
     labels = dbscan.fit_predict(embeddings_scaled)
 
     # 3. 카테고리명 생성 (클러스터별 요약 + 제목)
