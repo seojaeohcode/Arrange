@@ -4,8 +4,12 @@ from collections import defaultdict
 from backend.services import generate_title_from_summary, cluster_items, embedding_model, client
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
+import logging
 
 app = FastAPI(title="Multilingual GPT Title Generator & Clustering API")
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
 
 @app.post("/generate_title")
 def generate_title(data: SummaryInput):
@@ -82,6 +86,8 @@ async def process_bookmarks(data: InputList):
     for item in data.items:
         generated_title = generate_title_from_summary(item.summary)
         generated_items.append({"title": generated_title, "summary": item.summary})
+        # 생성된 제목과 요약을 로그로 출력
+        logging.info(f"Generated Title: {generated_title}, Summary: {item.summary}")
 
     # 2. 클러스터링 (생성된 제목 + 요약 이용)
     texts = [f"{i['title']} {i['summary']}" for i in generated_items]
