@@ -93,7 +93,7 @@ async def process_bookmarks(data: InputList):
     texts = [f"{i['title']} {i['summary']}" for i in generated_items]
     embeddings = embedding_model.encode(texts)
     embeddings_scaled = StandardScaler().fit_transform(embeddings)
-    dbscan = DBSCAN(eps=1.0, min_samples=1, metric='euclidean')
+    dbscan = DBSCAN(eps=0.5, min_samples=1, metric='euclidean')
     labels = dbscan.fit_predict(embeddings_scaled)
 
     # 3. 카테고리명 생성 (클러스터별 요약 + 제목)
@@ -105,7 +105,7 @@ async def process_bookmarks(data: InputList):
     categories = {}
     for cluster_id, texts in cluster_dict.items():
         joined_text = "\n".join(texts[:5])
-        prompt = f"""[Prompt 작성]"""
+        prompt = f"""Generate a category name based on the title and summary."""
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
