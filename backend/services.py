@@ -26,7 +26,7 @@ Summary:
             {"role": "user", "content": prompt}
         ],
         temperature=0.7,
-        max_tokens=50
+        max_tokens=15
     )
 
     return response.choices[0].message.content.strip()
