@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import numpy as np
 from typing import List
 from .schemas import InputItem
+import re
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -98,7 +99,10 @@ def generate_title_from_summary(title: str, summary: str) -> str:
         max_tokens=20,
     )
 
-    return response.choices[0].message.content.strip()
+    # GPT가 생성한 제목에서 특수문자 및 구두점 제거
+    title = response.choices[0].message.content.strip()
+    title = re.sub(r'[^\w\s]', '', title)
+    return title
 
 
 def cluster_items(items: List[InputItem]) -> dict:
