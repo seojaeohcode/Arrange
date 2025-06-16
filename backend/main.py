@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from backend.schemas import SummaryInput, InputList, ClusteredInput
 from collections import defaultdict
-from backend.services import generate_title_from_summary, cluster_items, embedding_model, client
+from backend.services import generate_title_from_summary, embedding_model, client
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 import logging
