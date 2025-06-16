@@ -103,20 +103,3 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     title = response.choices[0].message.content.strip()
     title = re.sub(r'[^\w\s]', '', title)
     return title
-
-
-def cluster_items(items: List[InputItem]) -> dict:
-    texts = [f"{item.title} {item.summary}" for item in items]
-    embeddings = embedding_model.encode(texts)
-    embeddings_scaled = StandardScaler().fit_transform(embeddings)
-    dbscan = DBSCAN(eps=0.5, min_samples=2, metric='euclidean')
-    labels = dbscan.fit_predict(embeddings_scaled)
-
-    result = []
-    for item, label in zip(items, labels):
-        result.append({
-            "title": item.title,
-            "summary": item.summary,
-            "cluster": int(label)
-        })
-    return {"clusters": result}
