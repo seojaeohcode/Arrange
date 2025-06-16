@@ -1,16 +1,16 @@
 // 북마크 타입 정의
 export interface Bookmark {
-  id: string;
-  title: string;
+  id: number;
+  title: string;  // 원본 제목
+  generatedTitle?: string;  // AI가 생성한 제목
   url: string;
-  categoryId: string;
-  category?: string;
-  favicon?: string;
-  description?: string;
+  description: string; // 요약(없으면 빈 값)
   createdAt: string;
   updatedAt: string;
   visitCount: number;
-  order: number;
+  favicon?: string;
+  categoryId?: string;
+  category?: string;
 }
 
 // 카테고리 타입 정의
@@ -22,12 +22,6 @@ export interface Category {
   createdAt: string;
   updatedAt: string;
   bookmarkCount?: number;
-}
-
-// 북마크 저장 응답 타입
-export interface SaveBookmarkResponse {
-  success: boolean;
-  bookmark: Bookmark;
 }
 
 // 사용자 설정 타입

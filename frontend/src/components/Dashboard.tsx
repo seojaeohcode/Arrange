@@ -39,6 +39,12 @@ const Dashboard: React.FC = () => {
     .sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0))
     .slice(0, 3);
 
+  // 카테고리 수 계산
+  const categoryCount = React.useMemo(() => {
+    const set = new Set(bookmarks.map(bm => bm.categoryId || 'uncategorized'));
+    return set.size;
+  }, [bookmarks]);
+
   // 카테고리별 분포 데이터 가공
   const uncategorizedCount = bookmarkStats?.totalBookmarks || 0;
   const categoryDistributionData = [
@@ -73,11 +79,7 @@ const Dashboard: React.FC = () => {
             </StatRow>
             <StatRow>
               <StatLabel>카테고리</StatLabel>
-              <StatValue>1</StatValue>
-            </StatRow>
-            <StatRow>
-              <StatLabel>최근 추가</StatLabel>
-              <StatValue>{bookmarkStats?.recentlyAdded.length || 0}</StatValue>
+              <StatValue>{categoryCount}</StatValue>
             </StatRow>
           </StatsOverview>
 
@@ -87,11 +89,35 @@ const Dashboard: React.FC = () => {
               {top3Visited.map((item, idx) => (
                 <TopListItem key={item.id}>
                   <Rank>{idx + 1}</Rank>
-                  <TopTitle>{item.title}</TopTitle>
+                  <TopTitle>{item.generatedTitle || item.title}</TopTitle>
                   <TopCount>{item.visitCount ?? 0}회</TopCount>
                 </TopListItem>
               ))}
             </TopList>
+          </ChartSection>
+
+          <ChartSection>
+            <ChartTitle>최근 추가된 북마크 Top 5</ChartTitle>
+            <RecentList>
+              {(bookmarkStats?.recentlyAdded || []).map((item, idx) => (
+                <RecentItem
+                  key={item.id}
+                  onClick={() => window.open(item.url, '_blank')}
+                  tabIndex={0}
+                  title={item.url}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') window.open(item.url, '_blank'); }}
+                >
+                  <Favicon src={item.favicon} alt="" />
+                  <RecentInfo>
+                    <RecentTitle>{item.generatedTitle || item.title}</RecentTitle>
+                    <RecentUrl>{item.url}</RecentUrl>
+                  </RecentInfo>
+                  <RecentDate>
+                    {new Date(item.createdAt).toLocaleDateString()}
+                  </RecentDate>
+                </RecentItem>
+              ))}
+            </RecentList>
           </ChartSection>
 
           <ChartSection>
@@ -126,10 +152,14 @@ const Dashboard: React.FC = () => {
 const DashboardContainer = styled.div`
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  max-width: 800px;
-  margin: 0 auto;
+  padding: 12px 16px;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
   transition: all 0.3s ease;
+  background: ${({ theme }) => theme.mode === 'dark' ? '#181a1b' : '#fff'};
+  color: ${({ theme }) => theme.mode === 'dark' ? '#f5f6fa' : '#222'};
 `;
 
 const Title = styled.h1`
@@ -141,14 +171,14 @@ const Title = styled.h1`
 const DashboardContent = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 `;
 
 const StatsOverview = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 6px;
+  margin-bottom: 14px;
 `;
 
 const StatRow = styled.div`
@@ -172,7 +202,7 @@ const StatValue = styled.span`
 `;
 
 const ChartSection = styled.section`
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 `;
 
 const ChartTitle = styled.h2`
@@ -234,22 +264,39 @@ const EmptyText = styled.p`
 const TopList = styled.ul`
   list-style: none;
   padding: 0;
-  margin: 0 0 24px 0;
+  margin: 0 0 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
 `;
 
 const TopListItem = styled.li`
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 16px;
+  padding: 10px 16px;
   font-size: 15px;
+  background: ${({ theme }) => theme.mode === 'dark' ? '#23272f' : '#f8fbff'};
+  border: 1px solid ${({ theme }) => theme.mode === 'dark' ? '#33363d' : '#e0e7ef'};
+  border-radius: 7px;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  width: 100%;
+  min-width: 0;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#f5f6fa' : '#222'};
+  &:hover {
+    background: ${({ theme }) => theme.mode === 'dark' ? '#2a2e38' : '#e3eaf6'};
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
 `;
 
 const Rank = styled.span`
-  font-size: 18px;
+  font-size: 17px;
   font-weight: bold;
   color: #4CAF50;
-  width: 24px;
+  width: 16px;
+  text-align: right;
 `;
 
 const TopTitle = styled.span`
@@ -257,13 +304,83 @@ const TopTitle = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#f5f6fa' : '#222'};
 `;
 
 const TopCount = styled.span`
-  color: #388E3C;
+  color: #4CAF50;
   font-size: 15px;
   min-width: 36px;
   text-align: right;
 `;
 
-export default Dashboard; 
+const RecentList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+`;
+
+const RecentItem = styled.li`
+  display: flex;
+  align-items: center;
+  background: ${({ theme }) => theme.mode === 'dark' ? '#23272f' : '#f8fbff'};
+  border: 1px solid ${({ theme }) => theme.mode === 'dark' ? '#33363d' : '#e0e7ef'};
+  border-radius: 8px;
+  padding: 10px 16px;
+  gap: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  width: 100%;
+  min-width: 0;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#f5f6fa' : '#222'};
+  &:hover {
+    background: ${({ theme }) => theme.mode === 'dark' ? '#2a2e38' : '#e3eaf6'};
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+`;
+
+const Favicon = styled.img`
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+`;
+
+const RecentInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const RecentTitle = styled.span`
+  font-weight: 600;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#f5f6fa' : '#222'};
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const RecentUrl = styled.span`
+  font-size: 12px;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#bbb' : '#888'};
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const RecentDate = styled.div`
+  font-size: 12px;
+  color: ${({ theme }) => theme.mode === 'dark' ? '#bbb' : '#aaa'};
+  min-width: 70px;
+  text-align: right;
+`;
+
+export default Dashboard;

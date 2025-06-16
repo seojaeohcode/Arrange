@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import useBookmarkStore from '../store/useBookmarkStore';
+import { importChromeBookmarks } from '../api/bookmarkApi';
 
 const Settings: React.FC = () => {
   const { 
@@ -19,8 +20,8 @@ const Settings: React.FC = () => {
     setImportResult(null);
     
     try {
-      await importChromeBookmarks();
-      setImportResult('북마크가 성공적으로 가져와졌습니다!');
+      const bookmarks = await importChromeBookmarks();
+      setImportResult(`북마크가 성공적으로 가져와졌습니다! (총 ${bookmarks.length}개)`);
     } catch (error) {
       console.error('북마크 가져오기 실패:', error);
       setImportResult('북마크 가져오기에 실패했습니다. 다시 시도해주세요.');
@@ -130,7 +131,6 @@ const SettingsContainer = styled.div`
   background-color: ${props => props.theme.colors.background};
   color: ${props => props.theme.colors.text.primary};
   height: 100%;
-  overflow-y: auto;
 `;
 
 const SettingsHeader = styled.div`

@@ -4,8 +4,6 @@ import useBookmarkStore from '../store/useBookmarkStore';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bookmark } from 'types';
-import { flattenBookmarks } from '../utils/transformBookmarks';
-import { buildBookmarkTree } from '../utils/buildBookmarkTree';
 import { BookmarkProcessor } from '../bookmarkProcessor';
 
 // 지연 로딩으로 각 페이지 컴포넌트 가져오기
@@ -19,20 +17,33 @@ interface CategoryTree {
 }
 
 const Home: React.FC = () => {
-  const { userSettings, fetchBookmarks, importChromeBookmarks, removeBookmark, updateBookmark } = useBookmarkStore();
+  const { userSettings, fetchBookmarks, importChromeBookmarks, removeBookmark, updateBookmark, syncBookmarks, refreshBookmarks, addBookmark } = useBookmarkStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeSection, setActiveSection] = useState("HOME");
   const [isLoading, setIsLoading] = useState(false);
-  const [editingBookmark, setEditingBookmark] = useState<string | null>(null);
+  const [editingBookmark, setEditingBookmark] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const [openActionId, setOpenActionId] = useState<number | null>(null);
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const [bookmarkTree, setBookmarkTree] = useState<CategoryTree[]>([]);
   const { bookmarks } = useBookmarkStore();
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchBookmarks();
   }, [fetchBookmarks]);
+
+  // 실시간 업데이트 메시지 리스너
+  useEffect(() => {
+    const handleMessage = (message: any) => {
+      if (message.type === 'BOOKMARK_UPDATE' && message.data?.bookmarks) {
+        syncBookmarks(message.data.bookmarks);
+      }
+    };
+
+    // 메시지 리스너 등록
+    chrome.runtime.onMessage.addListener(handleMessage);
+  }, [syncBookmarks]);
 
   useEffect(() => {
     // 탭(섹션) 변경 시 스크롤 맨 위로 이동
@@ -44,8 +55,8 @@ const Home: React.FC = () => {
   // 북마크 클릭 시 새 탭으로 열기
   const handleBookmarkClick = async (bookmark: Bookmark) => {
     window.open(bookmark.url, '_blank');
+    // 방문 시 visitCount 증가
     await updateBookmark(bookmark.id, { visitCount: (bookmark.visitCount || 0) + 1 });
-    await fetchBookmarks();
   };
 
   // 크롬 북마크 동기화
@@ -63,7 +74,7 @@ const Home: React.FC = () => {
   };
 
   // 북마크 삭제
-  const handleDeleteBookmark = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteBookmark = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation(); // 북마크 열기 방지
     if (window.confirm('정말로 이 북마크를 삭제하시겠습니까?')) {
       try {
@@ -76,14 +87,14 @@ const Home: React.FC = () => {
   };
 
   // 북마크 제목 편집 시작
-  const handleEditStart = (bookmark: any, e: React.MouseEvent) => {
+  const handleEditStart = (bookmark: Bookmark, e: React.MouseEvent) => {
     e.stopPropagation(); // 북마크 열기 방지
     setEditingBookmark(bookmark.id);
     setEditTitle(bookmark.title);
   };
 
   // 북마크 제목 저장
-  const handleSaveTitle = async (id: string, e: React.FormEvent) => {
+  const handleSaveTitle = async (id: number, e: React.FormEvent) => {
     e.preventDefault();
     if (editTitle.trim()) {
       try {
@@ -97,37 +108,86 @@ const Home: React.FC = () => {
   };
 
   const handleArrangeClick = async () => {
-    // 1. 북마크 id, title, summary만 추출
-    const minimalList = bookmarks.map(bm => ({
-      id: bm.id,
-      title: bm.title,
-      summary: bm.description || ''
-    }));
-    // 2. 서버에 POST
-    const res = await fetch('/api/cluster', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(minimalList)
-    });
-    const clusters = await res.json(); // [{ categoryId, categoryName, bookmarkIds }]
-    // 3. 트리 구조로 변환
-    const tree = buildBookmarkTree(bookmarks, clusters);
-    setBookmarkTree(tree);
-    // 4. 평탄화하여 localStorage/zustand에 반영 (선택)
-    const flat = tree.flatMap(cat => cat.children.map(bm => ({ ...bm, categoryId: cat.id, category: cat.name })));
-    localStorage.setItem('bookmarks', JSON.stringify(flat));
-    await fetchBookmarks();
+    setIsLoading(true);
+    try {
+      // 1. 클러스터링 처리 (bookmarkProcessor로 위임)
+      const clustered = await BookmarkProcessor.clusterBookmarks(bookmarks);
+      // 2. zustand에 반영
+      syncBookmarks(clustered);
+      setIsLoading(false);
+      alert('북마크가 카테고리별로 정리되었습니다!');
+    } catch (error) {
+      setIsLoading(false);
+      alert('클러스터링에 실패했습니다.');
+      console.error(error);
+    }
   };
 
-  const handleAddBookmarkClick = async () => {
-    const result = await BookmarkProcessor.processCurrentTab();
-    if (!result.success) {
-      alert(`[${result.step}] 단계에서 실패: ${result.message}`);
+  // 북마크 추가 버튼 클릭 시: 실제 탭 새로고침
+  const handleAddBookmarkClick = () => {
+    if (window.chrome && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (tabs[0]?.id) {
+          chrome.tabs.reload(tabs[0].id);
+          // 북마크 추가 플래그를 localStorage에 저장
+          localStorage.setItem('add_bookmark_after_reload', '1');
+          // 팝업도 새로고침(혹은 닫기)
+          window.location.reload();
+        }
+      });
     } else {
-      alert(
-        `북마크 요약 결과\n\n제목: ${result.data?.title}\nURL: ${result.data?.url}\n요약: ${result.data?.summary}`
-      );
+      // fallback: 기존 방식
+      const url = new URL(window.location.href);
+      url.searchParams.set('add_bookmark', '1');
+      window.location.replace(url.toString());
     }
+  };
+
+  // 페이지 로드 시 북마크 추가 플래그 확인
+  useEffect(() => {
+    if (localStorage.getItem('add_bookmark_after_reload') === '1') {
+      (async () => {
+        localStorage.removeItem('add_bookmark_after_reload');
+        const result = await BookmarkProcessor.processCurrentTab();
+        if (!result.success) {
+          alert(`[${result.step}] 단계에서 실패: ${result.message}`);
+        } else {
+          const now = new Date().toISOString();
+          const bookmarkData = result.data!;
+          const bookmark = {
+            id: 0,
+            title: bookmarkData.title || '',
+            generatedTitle: bookmarkData.generatedTitle || '',
+            url: bookmarkData.url || '',
+            description: bookmarkData.summary || '',
+            createdAt: now,
+            updatedAt: now,
+            visitCount: 0,
+            favicon: `https://www.google.com/s2/favicons?sz=64&domain_url=${bookmarkData.url || ''}`,
+            categoryId: '-1',
+            category: ''
+          };
+          await addBookmark(bookmark);
+          await refreshBookmarks();
+          alert(
+            `북마크 저장 완료!\n\n` +
+            `원본 제목: ${bookmarkData.title}\n\n` +
+            `생성된 제목: ${bookmarkData.generatedTitle}\n\n` +
+            `URL: ${bookmarkData.url}\n\n` +
+            `요약: ${bookmarkData.summary}`
+          );
+          // 북마크 추가 후 팝업 새로고침
+          window.location.reload();
+        }
+      })();
+    }
+  }, [addBookmark, refreshBookmarks]);
+
+  const toggleCategory = (categoryId: string) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
   };
 
   // 컨텐츠 렌더링
@@ -153,11 +213,9 @@ const Home: React.FC = () => {
   // 실제 북마크 데이터 렌더링
   const renderBookmarks = () => {
     const { bookmarks, isLoading: storeLoading } = useBookmarkStore.getState();
-    
     if (isLoading || storeLoading) {
       return <LoadingMessage>북마크 데이터를 불러오는 중...</LoadingMessage>;
     }
-
     if (bookmarks.length === 0) {
       return (
         <EmptyState>
@@ -169,61 +227,87 @@ const Home: React.FC = () => {
         </EmptyState>
       );
     }
-
-    const sortedBookmarks = [...bookmarks].sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0));
-    const maxVisit = sortedBookmarks[0]?.visitCount || 1;
-
-    // 모든 북마크를 미분류로 렌더링
+    // categoryId 기준으로 그룹화
+    const grouped = bookmarks.reduce((acc, bm) => {
+      const catId = bm.categoryId || 'uncategorized';
+      if (!acc[catId]) acc[catId] = [];
+      acc[catId].push(bm);
+      return acc;
+    }, {} as Record<string, Bookmark[]>);
+    // categoryId → category명 매핑
+    const categoryNameMap: Record<string, string> = {};
+    bookmarks.forEach(bm => {
+      if (bm.categoryId && bm.category) categoryNameMap[bm.categoryId] = bm.category;
+    });
     return (
-      <BookmarksContainer>
-        {sortedBookmarks.map(bookmark => {
-          const fillRatio = maxVisit > 0 ? (bookmark.visitCount || 0) / maxVisit : 0;
+      <div>
+        {Object.entries(grouped).map(([categoryId, bms]) => {
+          const sortedBms = [...bms].sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0));
+          const maxVisit = Math.max(...sortedBms.map(bm => bm.visitCount || 0), 1);
+          const isCollapsed = collapsedCategories[categoryId];
           return (
-            <BookmarkItem
-              key={bookmark.id}
-              fillRatio={fillRatio}
-              onClick={() => handleBookmarkClick(bookmark)}
-              onMouseLeave={() => setOpenActionId(null)}
-            >
-              <ServiceIcon>
-                {bookmark.favicon ? (
-                  <img src={bookmark.favicon} alt="" width="16" height="16" />
-                ) : (
-                  <IconText>🔖</IconText>
-                )}
-              </ServiceIcon>
-              <BookmarkContent>
-                {editingBookmark === bookmark.id ? (
-                  <EditForm onSubmit={(e) => handleSaveTitle(bookmark.id, e)} onClick={(e) => e.stopPropagation()}>
-                    <EditInput
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      autoFocus
-                    />
-                    <SaveButton type="submit">✓</SaveButton>
-                    <CancelButton type="button" onClick={() => setEditingBookmark(null)}>✕</CancelButton>
-                  </EditForm>
-                ) : (
-                  <BookmarkTitle>{bookmark.title}</BookmarkTitle>
-                )}
-                <BookmarkUrl>{bookmark.url}</BookmarkUrl>
-              </BookmarkContent>
-              <VisitCount>{bookmark.visitCount || 0}</VisitCount>
-              <ActionMenuWrapper>
-                <ActionMenuButton onClick={e => { e.stopPropagation(); setOpenActionId(bookmark.id === openActionId ? null : bookmark.id); }}>
-                  ⋯
-                </ActionMenuButton>
-                {openActionId === bookmark.id && (
-                  <ActionMenu>
-                    <ActionButton onClick={e => { e.stopPropagation(); handleEditStart(bookmark, e); setOpenActionId(null); }}>이름 변경</ActionButton>
-                    <ActionButton onClick={e => { e.stopPropagation(); handleDeleteBookmark(bookmark.id, e); setOpenActionId(null); }}>삭제</ActionButton>
-                  </ActionMenu>
-                )}
-              </ActionMenuWrapper>
-            </BookmarkItem>
+            <div key={categoryId}>
+              <CategoryHeader collapsed={!!isCollapsed} onClick={() => toggleCategory(categoryId)}>
+                <FolderIcon>
+                  {isCollapsed ? '📁' : '📂'}
+                </FolderIcon>
+                <span style={{ flex: 1 }}>{categoryNameMap[categoryId] || '미분류'}</span>
+                <span style={{ fontSize: '1.2em', marginLeft: 8 }}>
+                  {isCollapsed ? '▶' : '▼'}
+                </span>
+              </CategoryHeader>
+              {!isCollapsed && (
+                <CategoryContent>
+                  {sortedBms.map(bookmark => (
+                    <BookmarkItem
+                      key={bookmark.id}
+                      fillRatio={maxVisit > 0 ? (bookmark.visitCount || 0) / maxVisit : 0}
+                      onClick={() => handleBookmarkClick(bookmark)}
+                      onMouseLeave={() => setOpenActionId(null)}
+                    >
+                      <ServiceIcon>
+                        {bookmark.favicon ? (
+                          <img src={bookmark.favicon} alt="" width="16" height="16" />
+                        ) : (
+                          <IconText>🔖</IconText>
+                        )}
+                      </ServiceIcon>
+                      <BookmarkContent>
+                        {editingBookmark === bookmark.id ? (
+                          <EditForm onSubmit={(e) => handleSaveTitle(bookmark.id, e)} onClick={(e) => e.stopPropagation()}>
+                            <EditInput
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              autoFocus
+                            />
+                            <SaveButton type="submit">✓</SaveButton>
+                            <CancelButton type="button" onClick={() => setEditingBookmark(null)}>✕</CancelButton>
+                          </EditForm>
+                        ) : (
+                          <BookmarkTitle fillRatio={maxVisit > 0 ? (bookmark.visitCount || 0) / maxVisit : 0}>{bookmark.generatedTitle || bookmark.title}</BookmarkTitle>
+                        )}
+                        <BookmarkUrl fillRatio={maxVisit > 0 ? (bookmark.visitCount || 0) / maxVisit : 0}>{bookmark.url}</BookmarkUrl>
+                      </BookmarkContent>
+                      <VisitCount>{bookmark.visitCount || 0}</VisitCount>
+                      <ActionMenuWrapper>
+                        <ActionMenuButton onClick={e => { e.stopPropagation(); setOpenActionId(bookmark.id === openActionId ? null : bookmark.id); }}>
+                          ⋯
+                        </ActionMenuButton>
+                        {openActionId === bookmark.id && (
+                          <ActionMenu>
+                            <ActionButton onClick={e => { e.stopPropagation(); handleEditStart(bookmark, e); setOpenActionId(null); }}>이름 변경</ActionButton>
+                            <ActionButton onClick={e => { e.stopPropagation(); handleDeleteBookmark(bookmark.id, e); setOpenActionId(null); }}>삭제</ActionButton>
+                          </ActionMenu>
+                        )}
+                      </ActionMenuWrapper>
+                    </BookmarkItem>
+                  ))}
+                </CategoryContent>
+              )}
+            </div>
           );
         })}
-      </BookmarksContainer>
+      </div>
     );
   };
 
@@ -431,7 +515,9 @@ const NavigationTab = styled.button<TabProps>`
 const ContentArea = styled.div`
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  padding-right: 8px;
 `;
 
 const BookmarksList = styled.div`
@@ -448,7 +534,7 @@ const BookmarkItem = styled.div<{ fillRatio: number }>`
   user-select: none;
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 8px 8px 8px 4px;
   border-radius: 12px;
   margin: 4px 0;
   border: none;
@@ -471,6 +557,8 @@ const BookmarkItem = styled.div<{ fillRatio: number }>`
   &:hover {
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
+  color: ${({ fillRatio, theme }) =>
+    fillRatio >= 0.2 ? '#222' : (theme.mode === 'dark' ? '#f5f6fa' : '#222')};
 `;
 
 const ServiceIcon = styled.div`
@@ -481,7 +569,7 @@ const ServiceIcon = styled.div`
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  margin-right: 10px;
+  margin: 0 8px;
   background-color: #e8e8e8;
   overflow: hidden;
 `;
@@ -500,19 +588,21 @@ const BookmarkContent = styled.div`
   overflow: hidden;
 `;
 
-const BookmarkTitle = styled.div`
+const BookmarkTitle = styled.div<{ fillRatio?: number }>`
   user-select: none;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: ${({ theme }) => theme.mode === 'dark' ? '#222' : '#222'};
+  color: ${({ fillRatio, theme }) =>
+    fillRatio && fillRatio >= 0.2 ? '#222' : (theme.mode === 'dark' ? '#f5f6fa' : '#222')};
 `;
 
-const BookmarkUrl = styled.div`
+const BookmarkUrl = styled.div<{ fillRatio?: number }>`
   user-select: none;
   font-size: 11px;
-  color: ${({ theme }) => theme.mode === 'dark' ? '#b0b3b8' : '#888'};
+  color: ${({ fillRatio, theme }) =>
+    fillRatio && fillRatio >= 0.2 ? '#444' : (theme.mode === 'dark' ? '#b0b3b8' : '#888')};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -732,6 +822,47 @@ const AddBookmarkButton = styled.button`
   &:hover {
     background: #388e3c;
   }
+`;
+
+const CategoryHeader = styled.div<{ collapsed: boolean }>`
+  margin: 16px 0 0 0;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  font-size: 1.1em;
+  font-weight: bold;
+  background: ${({ theme }) => theme.mode === 'dark' ? '#23272f' : '#f5f7fa'};
+  border: 1.5px solid ${({ theme }) => theme.mode === 'dark' ? '#33363d' : '#e0e0e0'};
+  border-radius: ${({ collapsed }) => (collapsed ? '10px' : '10px 10px 0 0')};
+  transition: background 0.2s, border 0.2s, border-radius 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  color: ${({ theme }) => theme.mode === 'dark' ? '#f5f6fa' : '#222'};
+  &:hover {
+    background: ${({ theme }) => theme.mode === 'dark' ? '#2a2e38' : '#e3eaf6'};
+    border-color: ${({ theme }) => theme.mode === 'dark' ? '#444' : '#b6c6e3'};
+  }
+`;
+
+const CategoryContent = styled.div`
+  background: ${({ theme }) => theme.mode === 'dark' ? '#1e2128' : '#fafbfc'};
+  border: 1.5px solid ${({ theme }) => theme.mode === 'dark' ? '#33363d' : '#e0e0e0'};
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  padding: 12px 4px 8px 8px;
+  margin-bottom: 18px;
+  transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+`;
+
+const FolderIcon = styled.span`
+  font-size: 1.3em;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  width: 24px;
+  justify-content: center;
 `;
 
 export default Home; 
