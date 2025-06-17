@@ -40,8 +40,8 @@ async def process_bookmarks(data: InputList):
 
     # 4) UMAP 차원 축소 5 0 20 
     reducer = umap.UMAP(
-        n_neighbors=5,        # 더 가까운 이웃만 고려하여 세밀한 클러스터링
-        min_dist=0.5,         # 클러스터 간 거리를 더 크게 설정하여 더 엄격한 클러스터링
+        n_neighbors=3,        # 더 가까운 이웃만 고려하여 세밀한 클러스터링
+        min_dist=0.8,         # 클러스터 간 거리를 더 크게 설정하여 더 엄격한 클러스터링
         metric='cosine',
         n_components=2,       # 2차원으로 축소
         init='random',
