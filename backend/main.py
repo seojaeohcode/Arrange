@@ -34,7 +34,7 @@ async def process_bookmarks(data: InputList):
     embeddings_scaled = StandardScaler().fit_transform(embeddings)
 
     # ① PCA (최대 30차원으로 축소) 10
-    n_pca = min(2, embeddings_scaled.shape[1] - 1)  # 2차원으로 축소
+    n_pca = min(15, embeddings_scaled.shape[1] - 1)  # 2차원으로 축소
     if embeddings_scaled.shape[1] > 30:
         embeddings_scaled = PCA(n_components=n_pca, random_state=42).fit_transform(embeddings_scaled)
 
