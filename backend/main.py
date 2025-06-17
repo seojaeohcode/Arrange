@@ -40,10 +40,10 @@ async def process_bookmarks(data: InputList):
 
     # 4) UMAP 차원 축소 5 0 20 
     reducer = umap.UMAP(
-        n_neighbors=3,        # 더 가까운 이웃만 고려하여 세밀한 클러스터링
-        min_dist=0.8,         # 클러스터 간 거리를 더 크게 설정하여 더 엄격한 클러스터링
+        n_neighbors=15,        # 더 가까운 이웃만 고려하여 세밀한 클러스터링
+        min_dist=0,         # 클러스터 간 거리를 더 크게 설정하여 더 엄격한 클러스터링
         metric='cosine',
-        n_components=2,       # 2차원으로 축소
+        n_components=20,       # 2차원으로 축소
         init='random',
         random_state=42
     )
@@ -52,7 +52,7 @@ async def process_bookmarks(data: InputList):
     # 5) HDBSCAN 클러스터링 3 1
     clusterer = HDBSCAN(
         min_cluster_size=3,    # 최소 클러스터 크기 증가
-        min_samples=3,         # 최소 샘플 수 감소
+        min_samples=1,         # 최소 샘플 수 감소
         metric='euclidean'
     )
     labels = clusterer.fit_predict(X_umap)
