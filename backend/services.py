@@ -27,8 +27,8 @@ def generate_title_from_summary(title: str, summary: str) -> str:
     </primary_rules>
 
     <prioritization>
-    1. 원본 제목(title)의 핵심 키워드를 우선적으로 활용 (가중치: 70%)
-    2. 요약(summary)의 핵심 내용을 보조적으로 활용 (가중치: 30%)
+    1. 원본 제목(title)의 핵심 키워드를 우선적으로 활용 (가중치: 50%)
+    2. 요약(summary)의 핵심 내용을 보조적으로 활용 (가중치: 50%)
     3. 길이 제한으로 인해 선택이 필요할 경우, 원본 제목의 핵심어를 우선 보존
     </prioritization>
 
