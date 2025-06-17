@@ -16,6 +16,17 @@ interface CategoryTree {
   children: Bookmark[];
 }
 
+const LoadingOverlay = styled.div`
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255,255,255,0.7);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+`;
+
 const Home: React.FC = () => {
   const { userSettings, fetchBookmarks, importChromeBookmarks, removeBookmark, updateBookmark, syncBookmarks, refreshBookmarks, addBookmark } = useBookmarkStore();
   const [searchTerm, setSearchTerm] = useState("");
@@ -341,6 +352,12 @@ const Home: React.FC = () => {
       </Header>
       <Separator />
       <ContentArea ref={contentAreaRef}>
+        {isLoading && (
+          <LoadingOverlay>
+            <LoadingSpinner />
+            <LoadingMessage>정리 중입니다...</LoadingMessage>
+          </LoadingOverlay>
+        )}
         <TopBar>
           <AddBookmarkButton onClick={handleAddBookmarkClick}>+</AddBookmarkButton>
           <SearchBar>
@@ -384,6 +401,7 @@ const HomeContainer = styled.div`
   max-width: 100%;
   width: 360px;
   margin: 0 auto;
+  position: relative;
   
   &.dark-mode {
     background-color: #222;
@@ -518,6 +536,7 @@ const ContentArea = styled.div`
   overflow-y: scroll;
   scrollbar-gutter: stable;
   padding-right: 8px;
+  position: relative;
 `;
 
 const BookmarksList = styled.div`

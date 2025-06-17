@@ -134,26 +134,51 @@ const Dashboard: React.FC = () => {
           <ChartSection>
             <ChartTitle>카테고리별 북마크 분포</ChartTitle>
             <ChartContainer>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                   <Pie
                     data={categoryDistributionData}
                     cx="50%"
-                    cy="50%"
+                    cy="40%"
                     labelLine={false}
-                    outerRadius={100}
+                    outerRadius={75}
                     fill="#8884d8"
                     dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ cx, cy, midAngle, outerRadius, percent }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = outerRadius + 16;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          fill="#222"
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fontSize={14}
+                          fontWeight={600}
+                        >
+                          {`${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      );
+                    }}
                   >
                     {categoryDistributionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip formatter={(value, name) => [`${value}개`, name]} />
                 </PieChart>
               </ResponsiveContainer>
+              <LegendBox>
+                {categoryDistributionData.map((entry, idx) => (
+                  <LegendItem key={entry.name}>
+                    <LegendColor style={{ background: COLORS[idx % COLORS.length] }} />
+                    <LegendLabel>{entry.name}</LegendLabel>
+                  </LegendItem>
+                ))}
+              </LegendBox>
             </ChartContainer>
           </ChartSection>
         </DashboardContent>
@@ -227,6 +252,7 @@ const ChartTitle = styled.h2`
 
 const ChartContainer = styled.div`
   padding: 16px;
+  padding-bottom: 24px;
   border-radius: 8px;
   box-shadow: ${props => props.theme.mode === 'dark' 
     ? '0 4px 6px rgba(255, 255, 255, 0.1)' 
@@ -394,6 +420,31 @@ const RecentDate = styled.div`
   color: ${({ theme }) => theme.mode === 'dark' ? '#bbb' : '#aaa'};
   min-width: 70px;
   text-align: right;
+`;
+
+const LegendBox = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+`;
+
+const LegendItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const LegendColor = styled.span`
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+`;
+
+const LegendLabel = styled.span`
+  font-size: 15px;
+  font-weight: 500;
 `;
 
 export default Dashboard;
