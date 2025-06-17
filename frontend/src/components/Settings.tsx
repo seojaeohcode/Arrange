@@ -42,45 +42,22 @@ const Settings: React.FC = () => {
         
         <SettingItem>
           <SettingLabelGroup>
-            <SettingLabel>다크 모드</SettingLabel>
-            <SettingDescription>다크 모드를 전환합니다.</SettingDescription>
+            <SettingLabel>
+              {userSettings.darkMode ? '라이트 모드' : '다크 모드'}
+            </SettingLabel>
+            <SettingDescription>
+              {userSettings.darkMode ? '라이트 모드로 전환합니다.' : '다크 모드로 전환합니다.'}
+            </SettingDescription>
           </SettingLabelGroup>
           <ToggleButton 
             active={userSettings.darkMode} 
             onClick={toggleDarkMode}
-            aria-label="다크 모드 전환"
+            aria-label={userSettings.darkMode ? '라이트 모드로 전환' : '다크 모드로 전환'}
           >
             <ToggleSlider active={userSettings.darkMode} />
           </ToggleButton>
         </SettingItem>
-        
-        <SettingItem>
-          <SettingLabelGroup>
-            <SettingLabel>알림</SettingLabel>
-            <SettingDescription>알림을 전환합니다.</SettingDescription>
-          </SettingLabelGroup>
-          <ToggleButton 
-            active={userSettings.notifications} 
-            onClick={toggleNotifications}
-            aria-label="알림 전환"
-          >
-            <ToggleSlider active={userSettings.notifications} />
-          </ToggleButton>
-        </SettingItem>
-        
-        <SettingItem>
-          <SettingLabelGroup>
-            <SettingLabel>자동 카테고리 분류</SettingLabel>
-            <SettingDescription>자동으로 카테고리를 분류합니다.</SettingDescription>
-          </SettingLabelGroup>
-          <ToggleButton 
-            active={userSettings.autoCategories} 
-            onClick={toggleAutoCategories}
-            aria-label="자동 카테고리 분류 전환"
-          >
-            <ToggleSlider active={userSettings.autoCategories} />
-          </ToggleButton>
-        </SettingItem>
+
       </SettingsSection>
       
       <SettingsSection>
@@ -105,7 +82,7 @@ const Settings: React.FC = () => {
           )}
         </ImportContainer>
         
-        <SettingsRow>
+        {/* <SettingsRow>
           <SettingLabel>모든 북마크 백업</SettingLabel>
           <ActionButton>내보내기</ActionButton>
         </SettingsRow>
@@ -113,7 +90,7 @@ const Settings: React.FC = () => {
         <SettingsRow>
           <SettingLabel>백업 파일에서 복원</SettingLabel>
           <ActionButton>파일 선택</ActionButton>
-        </SettingsRow>
+        </SettingsRow> */}
       </SettingsSection>
       
       <SettingsSection>
@@ -130,7 +107,7 @@ const SettingsContainer = styled.div`
   padding: 12px;
   background-color: ${props => props.theme.colors.background};
   color: ${props => props.theme.colors.text.primary};
-  height: 100%;
+  height: 90%;
 `;
 
 const SettingsHeader = styled.div`

@@ -46,10 +46,21 @@ const Dashboard: React.FC = () => {
   }, [bookmarks]);
 
   // 카테고리별 분포 데이터 가공
-  const uncategorizedCount = bookmarkStats?.totalBookmarks || 0;
-  const categoryDistributionData = [
-    { name: '미분류', value: uncategorizedCount }
-  ];
+  const categoryDistributionData = React.useMemo(() => {
+    const categoryMap = new Map<string, number>();
+    
+    // 모든 북마크를 순회하며 카테고리별 카운트 계산
+    bookmarks.forEach(bookmark => {
+      const category = bookmark.category || '미분류';
+      categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+    });
+
+    // Map을 배열로 변환하여 차트 데이터 생성
+    return Array.from(categoryMap.entries()).map(([name, value]) => ({
+      name,
+      value
+    }));
+  }, [bookmarks]);
 
   if (top3Visited.length === 0) {
     return <EmptyState>방문 기록이 있는 북마크가 없습니다.</EmptyState>;
@@ -135,7 +146,9 @@ const Dashboard: React.FC = () => {
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    <Cell fill="#8884d8" />
+                    {categoryDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
                   </Pie>
                   <Tooltip />
                   <Legend />
