@@ -38,88 +38,57 @@ function isIrrelevantSentence(sentence: string): boolean {
   return patterns.some(re => re.test(sentence));
 }
 
-// --- TF-IDF 계산 (문장별 점수) ---
-function computeTfIdf(sentences: string[]): Record<number, number> {
-  const tf: Record<string, number[]> = {};
-  const df: Record<string, number> = {};
-  const N = sentences.length;
+// --- TextRank 기반 문장 요약 ---
+function textRankSummary(text: string, maxLen = 500): string {
+  // 1. 문장 분리
+  const sentences = splitSentences(text);
+  if (sentences.length === 0) return '';
 
-  // 각 문장의 단어 빈도 계산
-  sentences.forEach((s, i) => {
-    const words = s.toLowerCase()
-      .replace(/[^a-z0-9가-힣 ]/g, '')  // 특수문자 제거
-      .split(/\s+/)  // 공백으로 단어 분리
-      .filter(w => w.length > 1);  // 1글자 단어 제외
+  // 2. 문장 벡터화 (단어 집합)
+  const tokenize = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9가-힣 ]/g, '').split(/\s+/).filter(w => w.length > 1);
+  const sentenceTokens = sentences.map(tokenize);
 
-    const unique = new Set(words);
-    unique.forEach(w => { df[w] = (df[w] || 0) + 1; });
-    words.forEach(w => {
-      if (!tf[w]) tf[w] = Array(N).fill(0);
-      tf[w][i]++;
-    });
-  });
-
-  // TF-IDF 점수 계산
-  const tfidf: Record<number, number> = {};
-  for (let i = 0; i < N; i++) {
-    tfidf[i] = 0;
-    const words = sentences[i].toLowerCase()
-      .replace(/[^a-z0-9가-힣 ]/g, '')
-      .split(/\s+/)
-      .filter(w => w.length > 1);
-
-    for (const w of words) {
-      if (tf[w] && tf[w][i] > 0) {
-        const idf = Math.log(N / (df[w] || 1));
-        tfidf[i] += tf[w][i] * idf;
-      }
+  // 3. 문장 간 유사도 행렬 (코사인 유사도)
+  const simMatrix: number[][] = Array(sentences.length).fill(0).map(() => Array(sentences.length).fill(0));
+  for (let i = 0; i < sentences.length; i++) {
+    for (let j = 0; j < sentences.length; j++) {
+      if (i === j) continue;
+      const allWords = Array.from(new Set([...sentenceTokens[i], ...sentenceTokens[j]]));
+      const v1 = allWords.map(w => sentenceTokens[i].filter(x => x === w).length);
+      const v2 = allWords.map(w => sentenceTokens[j].filter(x => x === w).length);
+      const dot = v1.reduce((acc, v, k) => acc + v * v2[k], 0);
+      const norm1 = Math.sqrt(v1.reduce((acc, v) => acc + v * v, 0));
+      const norm2 = Math.sqrt(v2.reduce((acc, v) => acc + v * v, 0));
+      simMatrix[i][j] = (norm1 && norm2) ? dot / (norm1 * norm2) : 0;
     }
   }
-  return tfidf;
-}
 
-// --- 제목과의 유사도(키워드 포함 개수) ---
-function titleSimilarity(sentence: string, title: string): number {
-  const titleWords = title.toLowerCase()
-    .replace(/[^a-z0-9가-힣 ]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 1);
-  
-  const sentWords = sentence.toLowerCase()
-    .replace(/[^a-z0-9가-힣 ]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 1);
-
-  return titleWords.reduce((acc, w) => 
-    acc + (sentWords.includes(w) ? 1 : 0), 0);
-}
-
-// --- 최종 요약 함수: TF-IDF + 제목 유사도만 반영 ---
-function smartSummary(text: string, title: string, maxLen = 500): string {
-  // 1. 문장 분리
-  let sentences = splitSentences(text);
-
-  // 2. 불필요 문장(광고 등) + 공백만 있는 문장 + 너무 짧은 문장 제외
-  sentences = sentences.filter(s => 
-    !isIrrelevantSentence(s) && 
-    s.replace(/\s/g, '').length > 10 &&
-    s.length < 200  // 너무 긴 문장 제외
-  );
-
-  if (sentences.length === 0) return '요약할 내용이 없습니다.';
-
-  // 3. TF-IDF 점수 계산
-  const tfidf = computeTfIdf(sentences);
-
-  // 4. 각 문장에 TF-IDF + 제목 유사도 반영
-  const scored = sentences.map((s, i) => ({
-    s,
-    score: (tfidf[i] || 0) + titleSimilarity(s, title) * 2,
-    idx: i
-  }));
+  // 4. TextRank 점수 계산 (PageRank 방식)
+  const d = 0.85;
+  const minDiff = 0.0001;
+  const steps = 20;
+  let scores = Array(sentences.length).fill(1.0);
+  for (let step = 0; step < steps; step++) {
+    const prev = [...scores];
+    for (let i = 0; i < sentences.length; i++) {
+      let sum = 0;
+      for (let j = 0; j < sentences.length; j++) {
+        if (i === j) continue;
+        const norm = simMatrix[j].reduce((a, b) => a + b, 0);
+        if (norm === 0) continue;
+        sum += (simMatrix[j][i] / norm) * prev[j];
+      }
+      scores[i] = (1 - d) + d * sum;
+    }
+    // 수렴 체크
+    if (scores.every((s, idx) => Math.abs(s - prev[idx]) < minDiff)) break;
+  }
 
   // 5. 점수순 정렬, maxLen 이내로 이어붙이기
-  const sorted = scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  const sorted = sentences
+    .map((s, i) => ({ s, score: scores[i], idx: i }))
+    .sort((a, b) => b.score - a.score || a.idx - b.idx);
   let summary = '';
   for (const { s } of sorted) {
     if ((summary + s).length > maxLen) break;
@@ -128,8 +97,13 @@ function smartSummary(text: string, title: string, maxLen = 500): string {
   return summary.trim();
 }
 
+// --- 최종 요약 함수: TextRank 사용 ---
+function smartSummary(text: string, title: string, maxLen = 1000): string {
+  return textRankSummary(text, maxLen);
+}
+
 export class BookmarkProcessor {
-   private static readonly MAX_SUMMARY_LENGTH = 500;
+   private static readonly MAX_SUMMARY_LENGTH = 1000;
 
   // 1. 현재 탭에서 본문 추출 → 요약 → 백엔드로 제목 생성 요청 → 결과 반환
   public static async processCurrentTab(): Promise<{ success: boolean; step: string; message: string; data?: BookmarkData }> {
